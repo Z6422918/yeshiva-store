@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  direction: rtl;
+  background-color: #f1f5f9;
+}
+
+.tab-active {
+  @apply bg-blue-700 text-white;
+}
+
+.tab-inactive {
+  @apply bg-white text-gray-600 hover:bg-blue-50;
+}
