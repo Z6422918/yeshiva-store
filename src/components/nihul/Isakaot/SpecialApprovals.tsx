@@ -64,7 +64,7 @@ export default function SpecialApprovals() {
             required
           />
           <input
-            placeholder="מבוקש ע"י"
+            placeholder="מבוקש ע׳י"
             value={form.requestedBy}
             onChange={e => setForm(f => ({ ...f, requestedBy: e.target.value }))}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
