@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
-import { User, Users, Barcode, List, Trash2, Plus, Minus, CreditCard, Banknote } from 'lucide-react';
+import { Scan, List, Trash2, Plus, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import type { BuyerType, CartItem } from '../../types';
 import ProductListModal from './ProductListModal';
 import PaymentModal from './PaymentModal';
@@ -10,13 +10,14 @@ import type { Transaction } from '../../types';
 export default function KupaPage() {
   const {
     cart, buyerType, setBuyerType, addToCart, updateCartItem, removeFromCart,
-    products, completeTransaction
+    products, completeTransaction, transactions
   } = useStore();
 
   const [barcodeInput, setBarcodeInput] = useState('');
   const [showProductList, setShowProductList] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const total = cart.reduce((s, i) => s + i.totalPrice, 0);
 
@@ -54,61 +55,83 @@ export default function KupaPage() {
     return <TransactionSummary transaction={lastTransaction} onClose={() => setLastTransaction(null)} />;
   }
 
+  const recentTransactions = [...(transactions || [])].reverse().slice(0, 10);
+
   return (
-    <div className="flex gap-4 h-full">
-      {/* Right side - product input */}
-      <div className="flex-1 space-y-4">
-        {/* Buyer type */}
-        <div className="bg-white rounded-xl shadow p-4">
-          <p className="text-sm font-semibold text-gray-600 mb-3">סוג קונה</p>
-          <div className="flex gap-3">
-            {(['yeshiva', 'external'] as BuyerType[]).map(type => (
+    <div className="flex h-[calc(100vh-112px)]" dir="rtl">
+
+      {/* RIGHT: main area */}
+      <div className="flex-1 p-6 overflow-y-auto space-y-4">
+
+        {/* Buyer type + barcode row */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+          {/* Buyer type */}
+          <div className="flex items-center gap-4 mb-4">
+            <span className="text-sm font-semibold text-gray-600">בחר סוג קונה:</span>
+            <div className="flex gap-2">
               <button
-                key={type}
-                onClick={() => setBuyerType(type)}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-semibold text-sm transition border-2 ${
-                  buyerType === type
-                    ? 'bg-blue-700 text-white border-blue-700'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                onClick={() => setBuyerType('yeshiva')}
+                className={`flex items-center gap-1.5 px-5 py-2 rounded-lg font-semibold text-sm transition ${
+                  buyerType === 'yeshiva'
+                    ? 'bg-[#1a2e6e] text-white shadow'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                 }`}
               >
-                {type === 'yeshiva' ? <User size={18} /> : <Users size={18} />}
-                {type === 'yeshiva' ? 'בן ישיבה' : 'חיצוני'}
+                בן ישיבה
               </button>
-            ))}
+              <button
+                onClick={() => setBuyerType('external')}
+                className={`flex items-center gap-1.5 px-5 py-2 rounded-lg font-semibold text-sm transition ${
+                  buyerType === 'external'
+                    ? 'bg-[#1a2e6e] text-white shadow'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                קונה מבחוץ
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* Barcode search */}
-        <div className="bg-white rounded-xl shadow p-4">
-          <p className="text-sm font-semibold text-gray-600 mb-3">הוספת מוצר</p>
+          {/* Barcode input */}
           <form onSubmit={handleBarcodeSearch} className="flex gap-2">
-            <button type="submit" className="bg-blue-700 text-white px-4 py-2.5 rounded-lg hover:bg-blue-800 transition">
-              <Barcode size={18} />
+            <button
+              type="button"
+              onClick={() => setShowProductList(true)}
+              className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition border border-gray-200"
+            >
+              <List size={16} />
+              בחר מהרשימה
             </button>
-            <input
-              type="text"
-              placeholder="סרוק ברקוד או הקלד מוצר..."
-              value={barcodeInput}
-              onChange={e => setBarcodeInput(e.target.value)}
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-right focus:outline-none focus:ring-2 focus:ring-blue-400"
-              autoFocus
-            />
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="הרוק ברקוד – נוסף אוטומטית"
+                value={barcodeInput}
+                onChange={e => setBarcodeInput(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-gray-50"
+                autoFocus
+              />
+              <button type="submit" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600">
+                <Scan size={18} />
+              </button>
+            </div>
           </form>
-          <button
-            onClick={() => setShowProductList(true)}
-            className="mt-2 w-full flex items-center justify-center gap-2 text-blue-700 hover:bg-blue-50 py-2 rounded-lg text-sm font-medium transition"
-          >
-            <List size={16} />
-            בחר מרשימת מוצרים
-          </button>
         </div>
 
         {/* Cart items */}
-        <div className="bg-white rounded-xl shadow p-4">
-          <p className="text-sm font-semibold text-gray-600 mb-3">פריטים בעגלה</p>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-gray-400">מחיר {buyerType === 'yeshiva' ? 'בן ישיבה' : 'חיצוני'}</span>
+            <h3 className="font-semibold text-gray-700 text-sm">פריטים בקניה ({cart.length})</h3>
+          </div>
+
           {cart.length === 0 ? (
-            <p className="text-gray-400 text-center py-8">העגלה ריקה</p>
+            <div className="flex flex-col items-center justify-center py-14 text-gray-300">
+              <div className="w-16 h-16 border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-center mb-3">
+                <Scan size={28} className="text-gray-300" />
+              </div>
+              <p className="text-sm text-gray-400">סרוק מוצר כדי להתחיל</p>
+            </div>
           ) : (
             <div className="space-y-2">
               {cart.map(item => (
@@ -124,31 +147,69 @@ export default function KupaPage() {
         </div>
       </div>
 
-      {/* Left side - summary & payment */}
-      <div className="w-72 space-y-4">
-        <div className="bg-white rounded-xl shadow p-5 sticky top-4">
-          <h2 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">סיכום עגלה</h2>
-          <div className="space-y-2 mb-4">
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>{cart.reduce((s, i) => s + i.quantity, 0)} פריטים</span>
-              <span>כמות</span>
+      {/* LEFT: summary panel */}
+      <div className="w-72 bg-[#1a2e6e] flex flex-col text-white">
+
+        {/* Total section */}
+        <div className="p-6 flex-1 flex flex-col">
+          <h2 className="text-sm font-semibold text-blue-200 mb-6 text-center">סה"כ לתשלום</h2>
+
+          {cart.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3">
+              <div className="text-3xl font-bold tracking-widest text-blue-300">— — —</div>
+              <p className="text-xs text-blue-300 text-center">בחר סוג קונה כדי לראות מחיר</p>
+              <button
+                onClick={() => {}}
+                className="mt-4 w-full bg-[#8b7a3d] hover:bg-[#7a6a30] text-white py-3 rounded-xl font-bold text-sm transition"
+              >
+                בחר סוג קונה
+              </button>
             </div>
-            <div className="flex justify-between font-bold text-xl text-blue-800 pt-2 border-t">
-              <span>₪{total.toFixed(2)}</span>
-              <span>סה"כ לתשלום</span>
+          ) : (
+            <div className="flex-1 flex flex-col">
+              <div className="text-center mb-6">
+                <div className="text-4xl font-bold tracking-wide">₪{total.toFixed(2)}</div>
+                <div className="text-xs text-blue-300 mt-1">{cart.reduce((s, i) => s + i.quantity, 0)} פריטים</div>
+              </div>
+              <button
+                onClick={() => setShowPayment(true)}
+                className="w-full bg-[#8b7a3d] hover:bg-[#7a6a30] text-white py-3 rounded-xl font-bold text-base transition shadow-lg mt-auto"
+              >
+                לתשלום
+              </button>
             </div>
-            <div className="text-xs text-gray-400 text-left">
-              מחיר {buyerType === 'yeshiva' ? 'בן ישיבה' : 'חיצוני'}
-            </div>
-          </div>
+          )}
+        </div>
+
+        {/* Transaction history */}
+        <div className="border-t border-blue-800">
           <button
-            onClick={() => setShowPayment(true)}
-            disabled={cart.length === 0}
-            className="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-green-700 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            onClick={() => setShowHistory(!showHistory)}
+            className="w-full flex items-center justify-between px-5 py-3 text-sm text-blue-200 hover:text-white transition"
           >
-            <CreditCard size={20} />
-            לתשלום
+            <span>{showHistory ? <ChevronDown size={16} /> : <ChevronUp size={16} />}</span>
+            <span className="font-semibold">היסטוריית עסקאות</span>
           </button>
+
+          {showHistory && (
+            <div className="px-4 pb-4 space-y-2 max-h-64 overflow-y-auto">
+              {recentTransactions.length === 0 ? (
+                <p className="text-blue-300 text-xs text-center py-3">אין עסקאות עדיין</p>
+              ) : (
+                recentTransactions.map((tx) => (
+                  <div key={tx.id} className="bg-blue-800 rounded-lg p-2.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-blue-300">{tx.date}</span>
+                      <span className="text-sm font-bold">₪{tx.total.toFixed(2)}</span>
+                    </div>
+                    <div className="text-xs text-blue-300 mt-0.5 text-right">
+                      {tx.paymentMethod === 'cash' ? 'מזומן' : 'אשראי'} · {tx.buyerType === 'yeshiva' ? 'בן ישיבה' : 'חיצוני'}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -177,26 +238,34 @@ function CartItemRow({ item, onQtyChange, onRemove }: {
   onRemove: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-      <button onClick={onRemove} className="text-red-400 hover:text-red-600 transition">
-        <Trash2 size={15} />
+    <div className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5 border border-gray-100">
+      <button onClick={onRemove} className="text-red-300 hover:text-red-500 transition p-1">
+        <Trash2 size={14} />
       </button>
-      <div className="flex items-center gap-2">
-        <button onClick={() => onQtyChange(item.quantity + 1)} className="w-6 h-6 bg-blue-100 text-blue-700 rounded flex items-center justify-center hover:bg-blue-200">
-          <Plus size={12} />
+      <div className="flex items-center gap-2 mx-2">
+        <button
+          onClick={() => onQtyChange(item.quantity + 1)}
+          className="w-7 h-7 bg-blue-100 text-blue-700 rounded-lg flex items-center justify-center hover:bg-blue-200 transition"
+        >
+          <Plus size={13} />
         </button>
-        <span className="w-8 text-center font-semibold text-sm">{item.quantity}</span>
-        <button onClick={() => onQtyChange(item.quantity - 1)} className="w-6 h-6 bg-gray-100 text-gray-600 rounded flex items-center justify-center hover:bg-gray-200">
-          <Minus size={12} />
+        <span className="w-7 text-center font-bold text-sm text-gray-800">{item.quantity}</span>
+        <button
+          onClick={() => onQtyChange(Math.max(0, item.quantity - 1))}
+          className="w-7 h-7 bg-gray-100 text-gray-600 rounded-lg flex items-center justify-center hover:bg-gray-200 transition"
+        >
+          <Minus size={13} />
         </button>
       </div>
-      <div className="text-right flex-1 mx-2">
-        <p className="text-sm font-medium text-gray-800">{item.productName}</p>
-        <p className="text-xs text-gray-500">{item.variantDescription}</p>
+      <div className="text-right flex-1">
+        <p className="text-sm font-semibold text-gray-800">{item.productName}</p>
+        {item.variantDescription && (
+          <p className="text-xs text-gray-400">{item.variantDescription}</p>
+        )}
       </div>
-      <div className="text-left">
-        <p className="font-bold text-blue-800 text-sm">₪{item.totalPrice.toFixed(2)}</p>
-        <p className="text-xs text-gray-400">₪{item.unitPrice} ליח'</p>
+      <div className="text-left ml-2 min-w-[60px]">
+        <p className="font-bold text-[#1a2e6e] text-sm">₪{item.totalPrice.toFixed(2)}</p>
+        <p className="text-xs text-gray-400">₪{item.unitPrice} ×{item.quantity}</p>
       </div>
     </div>
   );
