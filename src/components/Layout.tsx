@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { ShoppingCart, LayoutDashboard, LogOut, Clock } from 'lucide-react';
+import { ShoppingCart, Settings, LogOut } from 'lucide-react';
 import KupaPage from './kupa/KupaPage';
 import NihulPage from './nihul/NihulPage';
 
@@ -10,14 +10,18 @@ function LiveClock() {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
   const time = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const date = now.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
+  const weekday = now.toLocaleDateString('he-IL', { weekday: 'long' });
+  const dateStr = now.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
   return (
-    <div className="flex items-center gap-2 bg-white/10 rounded-2xl px-4 py-2 backdrop-blur-sm border border-white/20">
-      <Clock size={14} className="text-indigo-200" />
-      <div className="text-center">
-        <div className="text-lg font-bold tracking-widest text-white leading-none">{time}</div>
-        <div className="text-[10px] text-indigo-200 mt-0.5">{date}</div>
+    <div className="text-center select-none">
+      <div className="text-3xl font-black tracking-widest text-gray-800" style={{ fontVariantNumeric: 'tabular-nums' }}>
+        {time}
+      </div>
+      <div className="text-xs font-medium mt-0.5" style={{ color: '#c8890a' }}>
+        {weekday} {dateStr}
       </div>
     </div>
   );
@@ -32,59 +36,64 @@ export default function Layout() {
   const canSeeNihul = currentUser?.role === 'manager' || currentUser?.role === 'admin';
 
   return (
-    <div className="min-h-screen flex flex-col" dir="rtl">
+    <div className="min-h-screen flex flex-col bg-[#f4f6fb]" dir="rtl">
 
       {/* ── Header ── */}
-      <header className="relative overflow-hidden bg-gradient-to-l from-indigo-700 via-violet-700 to-purple-800 shadow-2xl">
-        {/* decorative blobs */}
-        <div className="absolute -top-10 -right-10 w-48 h-48 bg-white/5 rounded-full blur-2xl" />
-        <div className="absolute -bottom-8 left-20 w-36 h-36 bg-indigo-400/20 rounded-full blur-2xl" />
+      <header className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="w-full px-6 py-3 flex items-center justify-between">
 
-        <div className="relative z-10 w-full px-6 py-3 flex items-center justify-between">
-          {/* Store name */}
+          {/* Right: logo + store name */}
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white shadow-lg flex items-center justify-center">
-              <span className="text-indigo-700 font-black text-xl">ח</span>
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm" style={{ background: '#1e3166' }}>
+              <span className="text-white font-black text-lg">ח</span>
             </div>
-            <div>
-              <div className="font-black text-xl text-white leading-tight tracking-wide">{storeName}</div>
-              <div className="text-[11px] text-indigo-200">{currentUser?.name}</div>
+            <div className="text-right">
+              <div className="font-black text-lg text-gray-900 leading-tight">{storeName}</div>
+              <div className="text-xs text-gray-400 font-medium">{currentUser?.name} · {currentUser?.role === 'admin' ? 'מנהל ראשי' : currentUser?.role === 'manager' ? 'מנהל' : 'קופה'}</div>
             </div>
           </div>
 
-          {/* Clock */}
+          {/* Center: clock */}
           <LiveClock />
 
-          {/* Logout */}
+          {/* Left: logout */}
           <button
             onClick={logout}
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105"
+            className="flex items-center gap-2 text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-400 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150"
           >
-            <LogOut size={15} />
             התנתק
+            <LogOut size={15} />
           </button>
         </div>
       </header>
 
       {/* ── Tab Bar ── */}
-      <div className="bg-white border-b border-gray-100 shadow-sm">
-        <div className="flex justify-center py-2.5 px-4">
-          <div className="flex gap-1.5 bg-gray-100 rounded-2xl p-1.5">
-            <TabBtn
-              active={activeTab === 'kupa'}
+      <div className="bg-white border-b border-gray-100">
+        <div className="flex justify-center py-2.5">
+          <div className="flex gap-1 bg-gray-100 rounded-2xl p-1">
+            <button
               onClick={() => setActiveTab('kupa')}
-              icon={<ShoppingCart size={16} />}
-              label="קופה"
-              color="indigo"
-            />
+              className={`flex items-center gap-2 px-10 py-2 rounded-xl font-bold text-sm transition-all duration-200 ${
+                activeTab === 'kupa'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <ShoppingCart size={15} />
+              קופה
+            </button>
             {canSeeNihul && (
-              <TabBtn
-                active={activeTab === 'nihul'}
+              <button
                 onClick={() => setActiveTab('nihul')}
-                icon={<LayoutDashboard size={16} />}
-                label="ניהול"
-                color="violet"
-              />
+                className={`flex items-center gap-2 px-10 py-2 rounded-xl font-bold text-sm transition-all duration-200 ${
+                  activeTab === 'nihul'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <Settings size={15} />
+                ניהול
+              </button>
             )}
           </div>
         </div>
@@ -96,24 +105,5 @@ export default function Layout() {
         {activeTab === 'nihul' && canSeeNihul && <NihulPage />}
       </main>
     </div>
-  );
-}
-
-function TabBtn({ active, onClick, icon, label, color }: {
-  active: boolean; onClick: () => void;
-  icon: React.ReactNode; label: string; color: 'indigo' | 'violet';
-}) {
-  const activeClass = color === 'indigo'
-    ? 'bg-gradient-to-l from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200'
-    : 'bg-gradient-to-l from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-200';
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-2 px-8 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 ${
-        active ? activeClass + ' scale-105' : 'text-gray-500 hover:text-gray-700 hover:bg-white/70'
-      }`}
-    >
-      {icon}{label}
-    </button>
   );
 }
