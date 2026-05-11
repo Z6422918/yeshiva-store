@@ -51,4 +51,5 @@ export default {
     },
   },
   plugins: [],
+  // Container config (matches shadcn/ui defaults)
 }

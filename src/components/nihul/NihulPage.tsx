@@ -5,10 +5,9 @@ import IsakaotPage from './Isakaot/IsakaotPage';
 import MitzraimPage from './Mitzraim/MitzraimPage';
 import KesafimPage from './Kesafim/KesafimPage';
 import HagdarotPage from './Hagdarot/HagdarotPage';
+import { cn } from '../../lib/utils';
 
 type NihulTab = 'mitzraim' | 'isakaot' | 'kesafim' | 'hagdarot';
-
-const NAVY = '#1e3166';
 
 const tabs: { id: NihulTab; label: string; Icon: typeof Package; adminOnly?: boolean }[] = [
   { id: 'mitzraim', label: 'מוצרים', Icon: Package },
@@ -24,43 +23,32 @@ export default function NihulPage() {
   const visibleTabs = tabs.filter(t => !t.adminOnly || currentUser?.role === 'admin');
 
   return (
-    <div className="flex flex-1 overflow-hidden" dir="rtl">
+    <div className="flex gap-6 flex-1 overflow-hidden" dir="rtl">
 
-      {/* ══ SIDE NAV (RIGHT in RTL) ══ */}
-      <div
-        className="flex-shrink-0 flex flex-col gap-1 p-2"
-        style={{
-          width: 156,
-          background: '#fff',
-          borderLeft: '1px solid #eaecf5',
-          boxShadow: '-2px 0 12px rgba(26,35,126,0.05)',
-        }}
-      >
+      {/* ── Right sidebar menu ── */}
+      <nav className="w-48 shrink-0 space-y-1 pt-1">
         {visibleTabs.map(tab => {
           const { Icon } = tab;
-          const isActive = active === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => setActive(tab.id)}
-              className="flex items-center gap-2.5 w-full text-right px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all duration-150"
-              style={
-                isActive
-                  ? { background: '#eef0fb', color: NAVY }
-                  : { background: 'transparent', color: '#aab' }
-              }
-              onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.cssText += 'background:#f4f6fb;color:#1e3166;'; }}
-              onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.cssText = 'background:transparent;color:#aab;'; }}
+              className={cn(
+                "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-smooth text-right",
+                active === tab.id
+                  ? "bg-primary text-primary-foreground shadow-soft"
+                  : "hover:bg-secondary text-muted-foreground hover:text-foreground"
+              )}
             >
-              <Icon size={16} style={{ flexShrink: 0, color: isActive ? NAVY : '#bbc' }} />
+              <Icon className="w-4 h-4 shrink-0" />
               {tab.label}
             </button>
           );
         })}
-      </div>
+      </nav>
 
-      {/* ══ CONTENT ══ */}
-      <div className="flex-1 overflow-y-auto p-5" style={{ background: '#f0f2f8' }}>
+      {/* ── Content area ── */}
+      <div className="flex-1 min-w-0 overflow-y-auto">
         {active === 'mitzraim' && <MitzraimPage />}
         {active === 'isakaot' && <IsakaotPage />}
         {active === 'kesafim' && <KesafimPage />}

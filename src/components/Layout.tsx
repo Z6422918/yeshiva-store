@@ -72,7 +72,7 @@ export default function Layout() {
 
       {/* ── Header ── */}
       <header className="border-b bg-card/80 backdrop-blur-sm shadow-soft shrink-0 z-40">
-        <div className="container py-3 flex items-center gap-4">
+        <div className="w-full px-6 py-3 flex items-center gap-4">
 
           {/* Right: logo + store name */}
           <div className="flex items-center gap-3 shrink-0">
@@ -96,7 +96,7 @@ export default function Layout() {
       </header>
 
       {/* ── Main content ── */}
-      <main className="container py-4 flex-1 min-h-0 flex flex-col overflow-hidden">
+      <main className="px-4 py-4 flex-1 min-h-0 flex flex-col overflow-hidden">
 
         {/* Tab bar — only for managers/admins */}
         {canManage && (
