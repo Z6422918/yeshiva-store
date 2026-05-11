@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../../../store/useStore';
 import {
-  Save, Users, RefreshCw, UserPlus, Pencil, Trash2, Landmark, KeyRound,
+  Save, Users, UserPlus, Pencil, Trash2, Landmark, KeyRound,
+  ShieldAlert, RotateCcw, AlertTriangle,
 } from 'lucide-react';
 import type { User, UserRole } from '../../../types';
 import { Card } from '../../ui/card';
@@ -173,9 +174,7 @@ function UsersManagement() {
           <Users className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-bold">ניהול משתמשים</h3>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setDlg({ open: false })} className="gap-2 opacity-0 pointer-events-none">
-          <RefreshCw className="w-4 h-4" /> רענן
-        </Button>
+        <div />
       </div>
 
       <div className="mb-5">
@@ -241,50 +240,219 @@ function UsersManagement() {
   );
 }
 
-// ─── Reset System ──────────────────────────────────────────────────────────────
-function ResetSystem() {
-  const [confirm, setConfirm] = useState(false);
-  const [pwd, setPwd] = useState('');
-  const { currentUser } = useStore();
+// ─── Reset System (5-step + 60s countdown, matches Lovable exactly) ───────────
+const RESET_CODE = 'RESET-7777';
+const COUNTDOWN_SECONDS = 60;
+type ResetStep = 'idle' | 'confirm1' | 'confirm2' | 'code' | 'confirm3' | 'countdown' | 'resetting';
 
-  const handleReset = () => {
-    if (pwd !== currentUser?.password) {
-      alert('סיסמה שגויה');
-      return;
-    }
-    // Clear persisted store data except users and settings
-    if (window.confirm('איפוס מלא של המערכת? כל הנתונים יימחקו!')) {
-      localStorage.clear();
-      window.location.reload();
-    }
+function ResetSystem() {
+  const [step, setStep] = useState<ResetStep>('idle');
+  const [codeInput, setCodeInput] = useState('');
+  const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECONDS);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const cancelReset = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+    setStep('idle');
+    setCodeInput('');
+    setSecondsLeft(COUNTDOWN_SECONDS);
+  }, []);
+
+  const startCountdown = useCallback(() => {
+    setStep('countdown');
+    setSecondsLeft(COUNTDOWN_SECONDS);
+    timerRef.current = setInterval(() => {
+      setSecondsLeft(prev => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          timerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    if (step === 'countdown' && secondsLeft === 0) performReset();
+  }, [step, secondsLeft]);
+
+  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+
+  const performReset = () => {
+    setStep('resetting');
+    localStorage.clear();
+    setTimeout(() => window.location.reload(), 1500);
+  };
+
+  const fmtTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+  const progress = ((COUNTDOWN_SECONDS - secondsLeft) / COUNTDOWN_SECONDS) * 100;
+
+  // Shared overlay wrapper
+  const Overlay = ({ open, children }: { open: boolean; children: React.ReactNode }) => {
+    if (!open) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/80" />
+        <div className="relative z-50 bg-background rounded-lg shadow-lg border p-6 w-full max-w-md mx-4" dir="rtl" onClick={e => e.stopPropagation()}>
+          {children}
+        </div>
+      </div>
+    );
   };
 
   return (
-    <Card className="p-6 shadow-soft border-destructive/30">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-xl">⚠️</span>
-        <h3 className="text-lg font-bold text-destructive">איפוס מערכת</h3>
-      </div>
-      <p className="text-sm text-muted-foreground mb-4">
-        פעולה זו תמחק את כל הנתונים במערכת — מוצרים, עסקאות, כספים. לא ניתן לבטל.
-      </p>
-      {!confirm ? (
-        <Button variant="destructive" onClick={() => setConfirm(true)} className="gap-2">
-          ⚠️ איפוס מערכת
-        </Button>
-      ) : (
-        <div className="space-y-3 max-w-xs">
-          <div className="space-y-1.5">
-            <Label>הזן סיסמה לאישור</Label>
-            <Input type="password" value={pwd} onChange={e => setPwd(e.target.value)} />
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { setConfirm(false); setPwd(''); }}>ביטול</Button>
-            <Button variant="destructive" onClick={handleReset}>אשר איפוס</Button>
-          </div>
+    <>
+      <Card className="p-6 shadow-soft border-destructive/30 bg-destructive/5">
+        <div className="flex items-center gap-2 mb-3">
+          <ShieldAlert className="w-5 h-5 text-destructive" />
+          <h3 className="text-lg font-bold text-destructive">איפוס מערכת</h3>
         </div>
-      )}
-    </Card>
+        <p className="text-sm text-muted-foreground mb-4">
+          איפוס מלא ימחק את כל הנתונים במערכת: מוצרים, הזמנות, מכירות, חיובים, הגדרות ועוד.
+          <strong className="text-destructive"> פעולה זו בלתי הפיכה!</strong>
+        </p>
+        <Button variant="destructive" onClick={() => setStep('confirm1')} className="gap-2">
+          <RotateCcw className="w-4 h-4" /> איפוס מלא של המערכת
+        </Button>
+      </Card>
+
+      {/* Step 1 */}
+      <Overlay open={step === 'confirm1'}>
+        <div className="flex items-center gap-2 mb-2 text-destructive">
+          <AlertTriangle className="w-5 h-5" />
+          <h2 className="text-lg font-bold">האם אתה בטוח?</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          פעולה זו תמחק את <strong>כל הנתונים</strong> במערכת — מוצרים, הזמנות, מכירות, חיובים והגדרות.
+          לא ניתן לשחזר את הנתונים לאחר האיפוס.
+        </p>
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={() => setStep('idle')}>ביטול</Button>
+          <Button variant="destructive" onClick={() => setStep('confirm2')}>כן, אני בטוח</Button>
+        </div>
+      </Overlay>
+
+      {/* Step 2 */}
+      <Overlay open={step === 'confirm2'}>
+        <div className="flex items-center gap-2 mb-2 text-destructive">
+          <AlertTriangle className="w-5 h-5" />
+          <h2 className="text-lg font-bold">האם אתה באמת בטוח?</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          זוהי אזהרה אחרונה. כל הנתונים יימחקו לצמיתות. אין דרך חזרה!
+        </p>
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={() => setStep('idle')}>ביטול</Button>
+          <Button variant="destructive" onClick={() => setStep('code')}>כן, אני באמת בטוח</Button>
+        </div>
+      </Overlay>
+
+      {/* Step 3: Code entry */}
+      <Overlay open={step === 'code'}>
+        <div className="flex items-center gap-2 mb-2 text-destructive">
+          <ShieldAlert className="w-5 h-5" />
+          <h2 className="text-lg font-bold">הזן קוד אישור מיוחד</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          כדי לאשר את האיפוס, הזן את הקוד:{' '}
+          <strong className="text-foreground font-mono text-lg">{RESET_CODE}</strong>
+        </p>
+        <Input
+          dir="ltr"
+          value={codeInput}
+          onChange={e => setCodeInput(e.target.value.toUpperCase())}
+          placeholder="הזן קוד אישור..."
+          className="text-center font-mono text-lg tracking-widest mb-4"
+          autoFocus
+        />
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={() => { setStep('idle'); setCodeInput(''); }}>ביטול</Button>
+          <Button
+            variant="destructive"
+            disabled={!codeInput.trim()}
+            onClick={() => {
+              if (codeInput.trim() === RESET_CODE) setStep('confirm3');
+              else { setCodeInput(''); }
+            }}
+          >
+            אישור
+          </Button>
+        </div>
+      </Overlay>
+
+      {/* Step 4: Final confirm */}
+      <Overlay open={step === 'confirm3'}>
+        <div className="flex items-center gap-2 mb-2 text-destructive">
+          <AlertTriangle className="w-6 h-6" />
+          <h2 className="text-lg font-bold">אישור סופי — אתה בטוח?</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          לאחר לחיצה על "התחל איפוס" תתחיל ספירה לאחור של דקה אחת.
+          תוכל לבטל את האיפוס בכל רגע במהלך הספירה לאחור.
+          לאחר סיום הספירה — כל הנתונים יימחקו לצמיתות.
+        </p>
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={() => { setStep('idle'); setCodeInput(''); }}>ביטול</Button>
+          <Button variant="destructive" onClick={startCountdown}>התחל איפוס</Button>
+        </div>
+      </Overlay>
+
+      {/* Step 5: Countdown */}
+      <Overlay open={step === 'countdown' || step === 'resetting'}>
+        <div className="text-center">
+          <h2 className="text-lg font-bold text-destructive flex items-center justify-center gap-2 mb-6">
+            {step === 'resetting' ? (
+              <><RotateCcw className="w-6 h-6 animate-spin" />מאפס את המערכת...</>
+            ) : (
+              <><AlertTriangle className="w-6 h-6 animate-pulse" />המערכת תאופס בעוד</>
+            )}
+          </h2>
+
+          {step === 'countdown' && (
+            <div className="flex flex-col items-center gap-6">
+              {/* Circular countdown */}
+              <div className="relative w-36 h-36">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="54" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
+                  <circle
+                    cx="60" cy="60" r="54" fill="none"
+                    stroke="hsl(var(--destructive))"
+                    strokeWidth="8"
+                    strokeDasharray={`${2 * Math.PI * 54}`}
+                    strokeDashoffset={`${2 * Math.PI * 54 * (1 - progress / 100)}`}
+                    strokeLinecap="round"
+                    className="transition-all duration-1000 ease-linear"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-4xl font-bold font-mono text-destructive">
+                    {fmtTime(secondsLeft)}
+                  </span>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">לחץ על "בטל איפוס" כדי לעצור את התהליך</p>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={cancelReset}
+                className="w-full border-primary text-primary hover:bg-primary/10 text-lg font-bold"
+              >
+                ❌ בטל איפוס
+              </Button>
+            </div>
+          )}
+
+          {step === 'resetting' && (
+            <div className="flex flex-col items-center gap-4 py-8">
+              <RotateCcw className="w-12 h-12 text-destructive animate-spin" />
+              <p className="text-muted-foreground">מוחק את כל הנתונים...</p>
+            </div>
+          )}
+        </div>
+      </Overlay>
+    </>
   );
 }
 

@@ -44,15 +44,21 @@ export default function IncomeTab() {
   const submit = () => {
     const n = parseFloat(amount);
     if (!n || n <= 0) return;
-    const desc =
-      type === 'cash'    ? 'פדיון מזומן לכספת' :
-      type === 'credit'  ? 'פדיון אשראי לכספת' :
-      type === 'loan'    ? `הלוואה${reason.trim() ? ` - ${reason.trim()}` : ''}` :
-      reason.trim() || 'הכנסה מיוחדת';
-    const src = (type === 'cash' || type === 'credit') ? type : 'special';
-    addSafeEntry({ date, type: 'income', source: src, amount: n, description: desc });
-    if (type === 'cash')   handleTransfer('cash');
-    if (type === 'credit') handleTransfer('credit');
+
+    if (type === 'cash') {
+      // transferToSafe already records the safe entry
+      handleTransfer('cash');
+    } else if (type === 'credit') {
+      handleTransfer('credit');
+    } else {
+      // special income or loan — manual safe entry
+      const desc =
+        type === 'loan'
+          ? `הלוואה${reason.trim() ? ` - ${reason.trim()}` : ''}`
+          : reason.trim() || 'הכנסה מיוחדת';
+      addSafeEntry({ date, type: 'income', source: 'special', amount: n, description: desc });
+    }
+
     setAmount(''); setReason(''); setNote(''); setOpen(false);
   };
 
