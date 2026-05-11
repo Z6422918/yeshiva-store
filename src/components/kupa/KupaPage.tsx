@@ -185,7 +185,7 @@ export default function KupaPage() {
                 <div key={tx.id} className="rounded-xl px-3 py-2.5" style={{ background: 'rgba(255,255,255,0.08)' }}>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-blue-300">{tx.date}</span>
-                    <span className="text-sm font-black text-white">₪{tx.total.toFixed(2)}</span>
+                    <span className="text-sm font-black text-white">₪{tx.totalAmount.toFixed(2)}</span>
                   </div>
                   <div className="text-[10px] text-blue-400 mt-0.5 text-right">
                     {tx.paymentMethod === 'cash' ? 'מזומן' : 'אשראי'} · {tx.buyerType === 'yeshiva' ? 'בן ישיבה' : 'חיצוני'}

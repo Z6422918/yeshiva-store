@@ -100,9 +100,9 @@ export default function Layout() {
       </div>
 
       {/* ── Content ── */}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden flex flex-col">
         {activeTab === 'kupa' && <KupaPage />}
-        {activeTab === 'nihul' && canSeeNihul && <NihulPage />}
+        {activeTab === 'nihul' && canSeeNihul && <div className="flex-1 overflow-hidden flex"><NihulPage /></div>}
       </main>
     </div>
   );
