@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { ShoppingCart, Settings, Store } from 'lucide-react';
+import { ShoppingCart, Settings, Store, LogOut } from 'lucide-react';
 import KupaPage from './kupa/KupaPage';
 import NihulPage from './nihul/NihulPage';
 import { cn } from '../lib/utils';
-import { formatTime, formatHebrew, formatWeekday, formatParasha, formatGregorian } from '../lib/hebrewDate';
+import { formatTime, formatHebrew, formatWeekday, formatParasha } from '../lib/hebrewDate';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 
 // ── Hebrew clock component (matches Lovable's HeaderClock exactly) ──
 function HeaderClock() {
@@ -62,10 +66,23 @@ type TabValue = "kupa" | "nihul";
 export default function Layout() {
   const currentUser = useStore(s => s.currentUser);
   const storeName = useStore(s => s.settings.storeName);
+  const logout = useStore(s => s.logout);
   const [activeTab, setActiveTab] = useState<TabValue>("kupa");
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [logoutPwd, setLogoutPwd] = useState('');
+  const [logoutError, setLogoutError] = useState('');
 
   const canManage = currentUser?.role === 'manager' || currentUser?.role === 'admin';
   const roleLabel = currentUser?.role === 'admin' ? 'מנהל ראשי' : currentUser?.role === 'manager' ? 'מנהל' : 'קופה';
+
+  const confirmLogout = () => {
+    if (!logoutPwd) { setLogoutError('יש להזין סיסמה'); return; }
+    if (logoutPwd !== currentUser?.password) { setLogoutError('סיסמה שגויה'); return; }
+    setLogoutOpen(false);
+    setLogoutPwd('');
+    setLogoutError('');
+    logout();
+  };
 
   return (
     <div className="h-screen flex flex-col overflow-hidden" dir="rtl">
@@ -92,8 +109,47 @@ export default function Layout() {
             <HeaderClock />
           </div>
 
+          {/* Left: logout button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setLogoutPwd(''); setLogoutError(''); setLogoutOpen(true); }}
+            className="gap-2 shrink-0"
+          >
+            <LogOut className="w-4 h-4" /> התנתק
+          </Button>
+
         </div>
       </header>
+
+      {/* ── Logout dialog ── */}
+      <Dialog open={logoutOpen} onOpenChange={o => { if (!o) { setLogoutOpen(false); setLogoutPwd(''); setLogoutError(''); } }}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogOut className="w-5 h-5" /> אישור התנתקות
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">לאישור ההתנתקות, נא להזין את הסיסמה.</p>
+            <div className="space-y-1.5">
+              <Label>סיסמה</Label>
+              <Input
+                type="password"
+                value={logoutPwd}
+                onChange={e => { setLogoutPwd(e.target.value); setLogoutError(''); }}
+                onKeyDown={e => { if (e.key === 'Enter') confirmLogout(); }}
+                autoFocus
+              />
+              {logoutError && <p className="text-sm text-destructive">{logoutError}</p>}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setLogoutOpen(false); setLogoutPwd(''); setLogoutError(''); }}>ביטול</Button>
+            <Button onClick={confirmLogout} variant="destructive">התנתק</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Main content ── */}
       <main className="px-4 py-4 flex-1 min-h-0 flex flex-col overflow-hidden">

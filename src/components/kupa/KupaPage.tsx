@@ -328,7 +328,7 @@ export default function KupaPage() {
             size="lg"
             disabled={cart.length === 0 || !customer}
             onClick={() => setShowPayment(true)}
-            className="w-full h-14 text-lg gradient-accent text-accent-foreground hover:opacity-90 border-0"
+            className="w-full h-14 text-lg gradient-accent text-accent-foreground hover:opacity-90 border-0 shadow-glow"
           >
             {customer ? 'לתשלום' : 'בחר סוג קונה'}
           </Button>
