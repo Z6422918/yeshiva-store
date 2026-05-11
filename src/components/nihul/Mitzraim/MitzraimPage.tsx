@@ -1,232 +1,564 @@
 import { useState } from 'react';
 import { useStore } from '../../../store/useStore';
-import { Plus, Search, Package, Edit2, Trash2, Truck } from 'lucide-react';
-import type { Product, ProductVariant } from '../../../types';
-import ProductForm from './ProductForm';
-import SupplyForm from './SupplyForm';
-import VariantForm from './VariantForm';
+import {
+  Plus, Search, Package, Pencil, Trash2, PackagePlus,
+  ChevronLeft, ChevronDown, Folder,
+} from 'lucide-react';
+import type { Product, ProductVariant, Supply } from '../../../types';
+import { Card } from '../../ui/card';
+import { Badge } from '../../ui/badge';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
+import { cn } from '../../../lib/utils';
 
-const NAVY = '#1e3166';
+// ─── Stock badge helper ────────────────────────────────────────────────────────
+function stockBadge(stock: number) {
+  if (stock <= 0) return { label: '0 — אזל', cls: 'bg-red-100 text-red-700 border-red-200' };
+  if (stock < 5)  return { label: `${stock} — נמוך`, cls: 'bg-orange-100 text-orange-700 border-orange-200' };
+  return { label: `${stock}`, cls: 'bg-green-100 text-green-700 border-green-200' };
+}
 
+// ─── Add/Edit Product Dialog ───────────────────────────────────────────────────
+interface ProductDialogProps {
+  open: boolean;
+  onClose: () => void;
+  editProduct?: Product;
+}
+
+function ProductDialog({ open, onClose, editProduct }: ProductDialogProps) {
+  const { suppliers, addProduct, updateProduct } = useStore();
+  const [form, setForm] = useState({
+    name: editProduct?.name ?? '',
+    supplierId: editProduct?.supplierId ?? '',
+    category: editProduct?.category ?? '',
+    barcode: editProduct?.barcode ?? '',
+    company: editProduct?.company ?? '',
+    isActive: editProduct?.isActive ?? true,
+  });
+
+  const handleSave = () => {
+    if (!form.name.trim()) return;
+    if (editProduct) {
+      updateProduct(editProduct.id, form);
+    } else {
+      addProduct({ ...form, variants: [] });
+    }
+    onClose();
+  };
+
+  const field = (label: string, key: keyof typeof form, type = 'text') => (
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Input
+        type={type}
+        value={form[key] as string}
+        onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+        className="h-9 text-sm"
+      />
+    </div>
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{editProduct ? 'עריכת מוצר' : 'הוספת מוצר חדש'}</DialogTitle>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3">
+          {field('שם מוצר', 'name')}
+          {field('ברקוד', 'barcode')}
+          {field('חברה', 'company')}
+          {field('קטגוריה', 'category')}
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">ספק</Label>
+            <select
+              value={form.supplierId}
+              onChange={e => setForm(p => ({ ...p, supplierId: e.target.value }))}
+              className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">— בחר ספק —</option>
+              {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>ביטול</Button>
+          <Button onClick={handleSave}>{editProduct ? 'שמור שינויים' : 'הוסף מוצר'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Add/Edit Variant Dialog ───────────────────────────────────────────────────
+interface VariantDialogProps {
+  open: boolean;
+  onClose: () => void;
+  productId: string;
+  editVariant?: ProductVariant;
+}
+
+function VariantDialog({ open, onClose, productId, editVariant }: VariantDialogProps) {
+  const { addVariant, updateVariant } = useStore();
+  const [form, setForm] = useState({
+    sizeType: editVariant?.sizeType ?? '',
+    details1: editVariant?.details1 ?? '',
+    details2: editVariant?.details2 ?? '',
+    yeshivaPrice: editVariant?.yeshivaPrice ?? 0,
+    externalPrice: editVariant?.externalPrice ?? 0,
+    costPrice: editVariant?.costPrice ?? 0,
+  });
+
+  const handleSave = () => {
+    if (editVariant) {
+      updateVariant(productId, editVariant.id, form);
+    } else {
+      addVariant(productId, form);
+    }
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{editVariant ? 'עריכת וריאנט' : 'הוספת וריאנט'}</DialogTitle>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { label: 'סוג / מידה', key: 'sizeType' },
+            { label: 'פרטים 1', key: 'details1' },
+            { label: 'פרטים 2', key: 'details2' },
+          ].map(f => (
+            <div key={f.key} className="space-y-1">
+              <Label className="text-xs text-muted-foreground">{f.label}</Label>
+              <Input
+                value={form[f.key as keyof typeof form] as string}
+                onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                className="h-9 text-sm"
+              />
+            </div>
+          ))}
+          {[
+            { label: 'מחיר ישיבה ₪', key: 'yeshivaPrice' },
+            { label: 'מחיר חיצוני ₪', key: 'externalPrice' },
+            { label: 'מחיר עלות ₪', key: 'costPrice' },
+          ].map(f => (
+            <div key={f.key} className="space-y-1">
+              <Label className="text-xs text-muted-foreground">{f.label}</Label>
+              <Input
+                type="number"
+                min={0}
+                value={form[f.key as keyof typeof form] as number}
+                onChange={e => setForm(p => ({ ...p, [f.key]: Number(e.target.value) }))}
+                className="h-9 text-sm"
+              />
+            </div>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>ביטול</Button>
+          <Button onClick={handleSave}>{editVariant ? 'שמור' : 'הוסף'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Supply Dialog ─────────────────────────────────────────────────────────────
+interface SupplyDialogProps {
+  open: boolean;
+  onClose: () => void;
+  productId: string;
+  variantId: string;
+}
+
+function SupplyDialog({ open, onClose, productId, variantId }: SupplyDialogProps) {
+  const { addSupply } = useStore();
+  const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], quantity: 1, costPerUnit: 0 });
+
+  const handleSave = () => {
+    if (form.quantity < 1) return;
+    addSupply(productId, variantId, form);
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>הספקה חדשה</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">תאריך</Label>
+            <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">כמות</Label>
+            <Input type="number" min={1} value={form.quantity} onChange={e => setForm(p => ({ ...p, quantity: Number(e.target.value) }))} className="h-9 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">עלות ליחידה ₪</Label>
+            <Input type="number" min={0} value={form.costPerUnit} onChange={e => setForm(p => ({ ...p, costPerUnit: Number(e.target.value) }))} className="h-9 text-sm" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>ביטול</Button>
+          <Button onClick={handleSave}>הוסף הספקה</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Supply History inline ─────────────────────────────────────────────────────
+function SupplyHistory({ supplies }: { supplies: Supply[] }) {
+  if (supplies.length === 0) {
+    return <p className="text-xs text-muted-foreground py-2 text-center">אין היסטוריית הספקות</p>;
+  }
+  return (
+    <div className="rounded-lg border border-border/50 overflow-hidden mt-1">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="bg-muted/40">
+            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">תאריך</th>
+            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">כמות</th>
+            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">עלות ליחידה</th>
+            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">סה"כ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...supplies].reverse().map(s => (
+            <tr key={s.id} className="border-t border-border/30">
+              <td className="px-3 py-1.5">{s.date}</td>
+              <td className="px-3 py-1.5">{s.quantity}</td>
+              <td className="px-3 py-1.5">₪{s.costPerUnit.toFixed(2)}</td>
+              <td className="px-3 py-1.5 font-semibold text-primary">₪{(s.quantity * s.costPerUnit).toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── Category Card ─────────────────────────────────────────────────────────────
+function CategoryCard({ cat, count, onClick }: { cat: string; count: number; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 transition-smooth text-center cursor-pointer w-full"
+    >
+      <Folder size={32} className="text-primary/60" />
+      <div className="font-bold text-primary text-sm">{cat}</div>
+      <div className="text-xs text-muted-foreground">{count} מוצרים</div>
+    </button>
+  );
+}
+
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function MitzraimPage() {
-  const { products, suppliers, deleteProduct } = useStore();
+  const { products, suppliers, deleteProduct, deleteVariant } = useStore();
+
   const [search, setSearch] = useState('');
-  const [showForm, setShowForm] = useState(false);
   const [view, setView] = useState<'table' | 'cat'>('table');
-  const [editProductId, setEditProductId] = useState<string | null>(null);
-  const [supplyVariant, setSupplyVariant] = useState<{ productId: string; variantId: string } | null>(null);
-  const [editVariant, setEditVariant] = useState<{ productId: string; variantId: string } | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  // Dialogs
+  const [productDlg, setProductDlg] = useState<{ open: boolean; edit?: Product }>({ open: false });
+  const [variantDlg, setVariantDlg] = useState<{ open: boolean; productId: string; edit?: ProductVariant } | null>(null);
+  const [supplyDlg, setSupplyDlg] = useState<{ open: boolean; productId: string; variantId: string } | null>(null);
 
   const filtered = products.filter(p => {
     const q = search.toLowerCase();
-    return !q || p.name.includes(q) || p.barcode.includes(q) || p.company.toLowerCase().includes(q) ||
-      p.category.toLowerCase().includes(q) || suppliers.find(s => s.id === p.supplierId)?.name.toLowerCase().includes(q);
+    if (!q) return true;
+    const supplierName = suppliers.find(s => s.id === p.supplierId)?.name ?? '';
+    return (
+      p.name.includes(q) ||
+      p.barcode.includes(q) ||
+      p.company.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q) ||
+      supplierName.toLowerCase().includes(q)
+    );
   });
 
-  // Flatten to variant rows for table view
-  type Row = { product: Product; variant: ProductVariant | null };
-  const rows = filtered.flatMap((p): Row[] =>
+  // Flatten rows: each variant = one row; product with no variants = one row
+  type FlatRow = { product: Product; variant: ProductVariant | null; rowKey: string };
+  const rows: FlatRow[] = filtered.flatMap((p): FlatRow[] =>
     p.variants.length === 0
-      ? [{ product: p, variant: null }]
-      : p.variants.map(v => ({ product: p, variant: v }))
+      ? [{ product: p, variant: null, rowKey: `${p.id}__none` }]
+      : p.variants.map(v => ({ product: p, variant: v, rowKey: `${p.id}__${v.id}` }))
   );
 
   const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
 
-  const stockBadge = (stock: number) => {
-    if (stock <= 0) return { label: '0 אזל', cls: 'bg-red-100 text-red-700' };
-    if (stock < 5) return { label: `${stock} נמוך`, cls: 'bg-orange-100 text-orange-700' };
-    return { label: `${stock}`, cls: 'bg-green-100 text-green-700' };
+  const toggleExpand = (key: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
   };
 
-  return (
-    <div className="space-y-4">
+  const tabs = [
+    { id: 'table' as const, label: 'טבלה מלאה' },
+    { id: 'cat' as const, label: 'תצוגת קטגוריות' },
+  ];
 
-      {/* ── ACTION BAR ── */}
-      <div className="flex items-center gap-2.5 flex-wrap">
-        <button
-          onClick={() => { setShowForm(true); setEditProductId(null); }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all duration-150 hover:opacity-90"
-          style={{ background: NAVY, boxShadow: '0 4px 12px rgba(30,49,102,0.25)' }}
+  return (
+    <div className="space-y-5" dir="rtl">
+
+      {/* ── Action bar ── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button
+          onClick={() => setProductDlg({ open: true })}
+          className="gradient-primary shadow-soft gap-2 font-bold"
         >
           <Plus size={15} />
           הוסף מוצר
-        </button>
-        <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-150 hover:bg-gray-50"
-          style={{ background: '#fff', color: '#5c6bc0', border: '1.5px solid #d5d9ef' }}>
-          📁 ספקים וקטגוריות
-        </button>
-        <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-150 hover:bg-gray-50"
-          style={{ background: '#fff', color: '#5c6bc0', border: '1.5px solid #d5d9ef' }}>
-          📄 ייבוא / ייצוא
-        </button>
-        <div className="flex-1 relative" style={{ minWidth: 240 }}>
-          <Search size={14} className="absolute top-1/2 right-3.5 -translate-y-1/2 text-gray-300 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="חיפוש לפי ברקוד, שם, ספק, סוג..."
+        </Button>
+        <Button variant="outline" className="gap-2 text-primary border-primary/30">
+          <Package size={15} />
+          ספקים וקטגוריות
+        </Button>
+        <div className="flex-1 relative min-w-56">
+          <Search size={14} className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full text-right outline-none text-sm pr-10 pl-3 py-2.5 rounded-xl transition-colors"
-            style={{ background: '#fff', border: '1.5px solid #e0e4f0', color: '#333' }}
+            placeholder="חיפוש לפי ברקוד, שם, ספק, קטגוריה..."
+            className="pr-9 text-sm"
           />
         </div>
+        <span className="text-xs text-muted-foreground font-medium">
+          {filtered.length} מוצרים
+        </span>
       </div>
 
-      {showForm && <ProductForm onClose={() => setShowForm(false)} />}
-      {editProductId && <ProductForm productId={editProductId} onClose={() => setEditProductId(null)} />}
-      {supplyVariant && <SupplyForm productId={supplyVariant.productId} variantId={supplyVariant.variantId} onClose={() => setSupplyVariant(null)} />}
-      {editVariant && <VariantForm productId={editVariant.productId} variantId={editVariant.variantId} onClose={() => setEditVariant(null)} />}
-
-      {/* ── MAIN CARD ── */}
-      <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 14px rgba(26,35,126,0.07)', border: '1px solid #eaecf5', overflow: 'hidden' }}>
+      {/* ── Main Card ── */}
+      <Card className="shadow-soft overflow-hidden">
 
         {/* Sub-tabs */}
-        <div style={{ display: 'flex', gap: 0, padding: '0 20px', borderBottom: '2px solid #eaecf5' }}>
-          {[
-            { id: 'table', label: 'טבלה מלאה' },
-            { id: 'cat', label: 'תצוגת קטגוריות' },
-          ].map(t => (
+        <div className="flex border-b border-border">
+          {tabs.map(t => (
             <button
               key={t.id}
-              onClick={() => setView(t.id as 'table' | 'cat')}
-              className="font-bold text-sm transition-all duration-150"
-              style={{
-                padding: '13px 22px',
-                border: 'none',
-                background: 'none',
-                cursor: 'pointer',
-                borderBottom: view === t.id ? `3px solid ${NAVY}` : '3px solid transparent',
-                color: view === t.id ? NAVY : '#aab',
-                marginBottom: -2,
-                fontFamily: 'inherit',
-              }}
+              onClick={() => setView(t.id)}
+              className={cn(
+                'px-6 py-3.5 text-sm font-bold transition-smooth border-b-2 -mb-px',
+                view === t.id
+                  ? 'text-primary border-primary'
+                  : 'text-muted-foreground border-transparent hover:text-foreground'
+              )}
             >
               {t.label}
             </button>
           ))}
         </div>
 
-        {/* ── TABLE VIEW ── */}
+        {/* ── Table View ── */}
         {view === 'table' && (
-          <div style={{ overflowX: 'auto' }}>
-            {rows.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <Package size={40} className="text-gray-200" />
-                <p className="text-sm text-gray-400 font-semibold">אין מוצרים להצגה</p>
-              </div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: '#f8f9fd' }}>
-                    {['ברקוד', 'קטגוריה', 'ספק', 'חברה', 'שם', 'סוג', 'מידה', 'פרטים 1', 'פרטים 2', 'מלאי', 'פעולות'].map(h => (
-                      <th key={h} style={{ color: '#9fa8da', fontSize: 11, fontWeight: 800, padding: '11px 13px', textAlign: 'right', whiteSpace: 'nowrap', borderBottom: '1px solid #eaecf5' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(({ product: p, variant: v }, i) => {
-                    const supplier = suppliers.find(s => s.id === p.supplierId);
-                    const badge = v ? stockBadge(v.currentStock) : null;
-                    return (
-                      <tr
-                        key={`${p.id}-${v?.id ?? 'no-variant'}-${i}`}
-                        style={{ borderBottom: '1px solid #f4f6fb', transition: 'background .15s' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#fafbff')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          rows.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+              <Package size={44} className="opacity-30" />
+              <p className="text-sm font-semibold">אין מוצרים להצגה</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="w-8" />
+                  <TableHead className="text-xs font-bold text-muted-foreground">ברקוד</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">קטגוריה</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">ספק</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">חברה</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">שם</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">סוג</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">פרטים 1</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">פרטים 2</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">מלאי</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">פעולות</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map(({ product: p, variant: v, rowKey }) => {
+                  const supplier = suppliers.find(s => s.id === p.supplierId);
+                  const badge = v ? stockBadge(v.currentStock) : null;
+                  const isExpanded = expandedRows.has(rowKey);
+
+                  return (
+                    <>
+                      <TableRow
+                        key={rowKey}
+                        className="group text-sm"
                       >
-                        <td style={{ padding: '11px 13px', fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: '#5c6bc0' }}>{p.barcode || '—'}</td>
-                        <td style={{ padding: '11px 13px' }}>
-                          {p.category ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: '#eef0fb', color: NAVY }}>
-                              {p.category}
-                            </span>
-                          ) : <span style={{ color: '#ccc' }}>—</span>}
-                        </td>
-                        <td style={{ padding: '11px 13px', fontSize: 13, color: '#444', fontWeight: 500 }}>{supplier?.name || '—'}</td>
-                        <td style={{ padding: '11px 13px', fontSize: 13, color: '#444', fontWeight: 500 }}>{p.company || '—'}</td>
-                        <td style={{ padding: '11px 13px', fontSize: 13, fontWeight: 800, color: NAVY }}>{p.name}</td>
-                        <td style={{ padding: '11px 13px', fontSize: 13, color: '#555' }}>{v?.sizeType || '—'}</td>
-                        <td style={{ padding: '11px 13px', fontSize: 13, color: '#555' }}>{v?.details1 || <span style={{ color: '#ccc' }}>—</span>}</td>
-                        <td style={{ padding: '11px 13px', fontSize: 13, color: '#555' }}>{v?.details2 || <span style={{ color: '#ccc' }}>—</span>}</td>
-                        <td style={{ padding: '11px 13px', fontSize: 13, color: '#555' }}>{v?.details2 ? v.details2 : <span style={{ color: '#ccc' }}>—</span>}</td>
-                        <td style={{ padding: '11px 13px' }}>
-                          {badge ? (
-                            <span style={{ display: 'inline-flex', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 800 }} className={badge.cls}>
-                              {badge.label}
-                            </span>
-                          ) : <span style={{ color: '#ccc' }}>—</span>}
-                        </td>
-                        <td style={{ padding: '11px 13px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        {/* Expand toggle */}
+                        <TableCell className="py-2 px-2 w-8">
+                          {v && (
                             <button
-                              title="מחק"
-                              onClick={() => { if (window.confirm('למחוק מוצר זה?')) deleteProduct(p.id); }}
-                              style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffebee', color: '#e57373', transition: 'all .15s', fontSize: 13 }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#ffcdd2'; (e.currentTarget as HTMLElement).style.color = '#c62828'; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#ffebee'; (e.currentTarget as HTMLElement).style.color = '#e57373'; }}
+                              onClick={() => toggleExpand(rowKey)}
+                              className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:bg-muted transition-smooth"
                             >
-                              <Trash2 size={13} />
+                              {isExpanded
+                                ? <ChevronDown size={13} />
+                                : <ChevronLeft size={13} />
+                              }
                             </button>
-                            <button
-                              title="ערוך"
-                              onClick={() => setEditProductId(p.id)}
-                              style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#eef0fb', color: '#5c6bc0', transition: 'all .15s' }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#d5d9ef'; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#eef0fb'; }}
-                            >
-                              <Edit2 size={13} />
-                            </button>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="py-2 font-mono text-xs font-bold text-primary">
+                          {p.barcode || <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+
+                        <TableCell className="py-2">
+                          {p.category
+                            ? <Badge className="bg-primary/10 text-primary border-0 text-xs">{p.category}</Badge>
+                            : <span className="text-muted-foreground text-xs">—</span>
+                          }
+                        </TableCell>
+
+                        <TableCell className="py-2 text-sm">
+                          {supplier?.name || <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+
+                        <TableCell className="py-2 text-sm">
+                          {p.company || <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+
+                        <TableCell className="py-2 font-bold text-primary text-sm">{p.name}</TableCell>
+
+                        <TableCell className="py-2 text-sm">
+                          {v?.sizeType || <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+
+                        <TableCell className="py-2 text-sm">
+                          {v?.details1 || <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+
+                        <TableCell className="py-2 text-sm">
+                          {v?.details2 || <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+
+                        <TableCell className="py-2">
+                          {badge
+                            ? (
+                              <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border', badge.cls)}>
+                                {badge.label}
+                              </span>
+                            )
+                            : <span className="text-muted-foreground text-xs">—</span>
+                          }
+                        </TableCell>
+
+                        <TableCell className="py-2">
+                          <div className="flex items-center gap-1">
                             {v && (
                               <button
                                 title="הספקה"
-                                onClick={() => setSupplyVariant({ productId: p.id, variantId: v.id })}
-                                style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#e8f5e9', color: '#66bb6a', transition: 'all .15s' }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#c8e6c9'; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#e8f5e9'; }}
+                                onClick={() => setSupplyDlg({ open: true, productId: p.id, variantId: v.id })}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-smooth"
                               >
-                                <Truck size={13} />
+                                <PackagePlus size={13} />
+                              </button>
+                            )}
+                            <button
+                              title="ערוך"
+                              onClick={() => setProductDlg({ open: true, edit: p })}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-smooth"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            {v ? (
+                              <button
+                                title="מחק וריאנט"
+                                onClick={() => { if (window.confirm('למחוק וריאנט זה?')) deleteVariant(p.id, v.id); }}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-smooth"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            ) : (
+                              <button
+                                title="מחק מוצר"
+                                onClick={() => { if (window.confirm('למחוק מוצר זה?')) deleteProduct(p.id); }}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-smooth"
+                              >
+                                <Trash2 size={13} />
                               </button>
                             )}
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
+                        </TableCell>
+                      </TableRow>
 
-        {/* ── CATEGORY VIEW ── */}
-        {view === 'cat' && (
-          <div style={{ padding: 24 }}>
-            {categories.length === 0 ? (
-              <p className="text-center text-gray-400 py-8">אין קטגוריות מוגדרות</p>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-                {categories.map(cat => {
-                  const count = products.filter(p => p.category === cat).length;
-                  return (
-                    <div
-                      key={cat}
-                      onClick={() => { setView('table'); setSearch(cat); }}
-                      style={{ background: '#f0f4ff', borderRadius: 16, padding: 20, textAlign: 'center', border: '1.5px solid #c5cae9', cursor: 'pointer', transition: 'all .2s' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#e8ecff'}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#f0f4ff'}
-                    >
-                      <div style={{ fontSize: 28, marginBottom: 8 }}>📦</div>
-                      <div style={{ fontWeight: 800, color: NAVY, fontSize: 14 }}>{cat}</div>
-                      <div style={{ fontSize: 12, color: '#9fa8da', marginTop: 4 }}>{count} מוצרים</div>
-                    </div>
+                      {/* Expanded supply history */}
+                      {isExpanded && v && (
+                        <TableRow key={`${rowKey}__expanded`}>
+                          <TableCell colSpan={11} className="bg-muted/20 px-8 py-3">
+                            <div className="text-xs font-bold text-muted-foreground mb-2">היסטוריית הספקות</div>
+                            <SupplyHistory supplies={v.supplies} />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
                   );
                 })}
+              </TableBody>
+            </Table>
+          )
+        )}
+
+        {/* ── Category View ── */}
+        {view === 'cat' && (
+          <div className="p-6">
+            {categories.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+                <Folder size={44} className="opacity-30" />
+                <p className="text-sm font-semibold">אין קטגוריות מוגדרות</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                {categories.map(cat => (
+                  <CategoryCard
+                    key={cat}
+                    cat={cat}
+                    count={products.filter(p => p.category === cat).length}
+                    onClick={() => { setView('table'); setSearch(cat); }}
+                  />
+                ))}
               </div>
             )}
           </div>
         )}
-      </div>
+      </Card>
+
+      {/* ── Dialogs ── */}
+      <ProductDialog
+        open={productDlg.open}
+        onClose={() => setProductDlg({ open: false })}
+        editProduct={productDlg.edit}
+      />
+
+      {variantDlg && (
+        <VariantDialog
+          open={variantDlg.open}
+          onClose={() => setVariantDlg(null)}
+          productId={variantDlg.productId}
+          editVariant={variantDlg.edit}
+        />
+      )}
+
+      {supplyDlg && (
+        <SupplyDialog
+          open={supplyDlg.open}
+          onClose={() => setSupplyDlg(null)}
+          productId={supplyDlg.productId}
+          variantId={supplyDlg.variantId}
+        />
+      )}
     </div>
   );
 }

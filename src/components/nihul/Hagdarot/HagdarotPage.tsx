@@ -1,82 +1,30 @@
 import { useState } from 'react';
 import { useStore } from '../../../store/useStore';
-import { Plus, Trash2, Edit2, Save } from 'lucide-react';
+import { Plus, Trash2, Pencil, Save } from 'lucide-react';
 import type { User, UserRole, Supplier, AgentType } from '../../../types';
+import { Card } from '../../ui/card';
+import { Badge } from '../../ui/badge';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
+import { cn } from '../../../lib/utils';
 
-const NAVY = '#1e3166';
-
-export default function HagdarotPage() {
-  const [activeSection, setActiveSection] = useState<'nedarim' | 'users' | 'suppliers'>('nedarim');
-
-  const sections = [
-    { id: 'nedarim' as const, label: '🔗 נדרים פלוס' },
-    { id: 'users' as const, label: '👥 משתמשים' },
-    { id: 'suppliers' as const, label: '🏭 ספקים' },
-  ];
-
-  return (
-    <div className="space-y-4">
-
-      {/* ── SECTION TABS ── */}
-      <div style={{ display: 'flex', gap: 6, background: '#eef0f8', borderRadius: 16, padding: 5, width: 'fit-content' }}>
-        {sections.map(s => (
-          <button
-            key={s.id}
-            onClick={() => setActiveSection(s.id)}
-            className="text-sm font-bold transition-all duration-200 px-6 py-2 rounded-xl"
-            style={
-              activeSection === s.id
-                ? { background: '#fff', color: '#1a1a2e', boxShadow: '0 2px 8px rgba(30,49,102,0.12)', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }
-                : { background: 'transparent', color: '#9fa8da', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }
-            }
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
-
-      {activeSection === 'nedarim' && <NedarimSettings />}
-      {activeSection === 'users' && <UsersSettings />}
-      {activeSection === 'suppliers' && <SuppliersSettings />}
-    </div>
-  );
-}
-
-function SettingsCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ background: '#fff', borderRadius: 18, padding: 20, marginBottom: 14, border: '1px solid #eaecf5', boxShadow: '0 2px 12px rgba(26,35,126,0.06)' }}>
-      <div style={{ fontSize: 14, fontWeight: 900, color: NAVY, marginBottom: 16 }}>{title}</div>
-      {children}
-    </div>
-  );
-}
-
-function SettingRow({ label, sub, children }: { label: string; sub?: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f4f6fb' }}>
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#333' }}>{label}</div>
-        {sub && <div style={{ fontSize: 11, color: '#bbb', marginTop: 2 }}>{sub}</div>}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-const inputStyle: React.CSSProperties = {
-  border: '1.5px solid #e0e4f0',
-  borderRadius: 11,
-  padding: '8px 13px',
-  fontSize: 13,
-  fontFamily: 'inherit',
-  color: '#333',
-  outline: 'none',
-  width: 220,
-  textAlign: 'right',
-  background: '#fafbff',
-  transition: 'border .2s',
+// ─── Role labels & badges ──────────────────────────────────────────────────────
+const roleLabels: Record<UserRole, string> = {
+  kupa: 'קופה בלבד',
+  manager: 'מנהל',
+  admin: 'מנהל ראשי',
 };
 
+const roleBadgeClass: Record<UserRole, string> = {
+  kupa:    'bg-green-100 text-green-700 border-green-200',
+  manager: 'bg-primary/10 text-primary border-primary/20',
+  admin:   'bg-purple-100 text-purple-700 border-purple-200',
+};
+
+// ─── Nedarim Settings ──────────────────────────────────────────────────────────
 function NedarimSettings() {
   const { settings, updateSettings } = useStore();
   const [form, setForm] = useState({ ...settings });
@@ -86,284 +34,396 @@ function NedarimSettings() {
     e.preventDefault();
     updateSettings(form);
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => setSaved(false), 2200);
   };
 
   return (
-    <form onSubmit={handleSave}>
-      <SettingsCard title="🔗 חיבור נדרים פלוס">
-        <SettingRow label="שם החנות">
-          <input
-            style={inputStyle}
+    <Card className="shadow-soft p-6">
+      <div className="flex items-center gap-2 mb-5">
+        <span className="text-xl">🔗</span>
+        <h2 className="text-base font-black text-primary">חיבור נדרים פלוס</h2>
+      </div>
+      <form onSubmit={handleSave} className="space-y-4">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">שם החנות</Label>
+          <Input
             value={form.storeName}
             onChange={e => setForm(p => ({ ...p, storeName: e.target.value }))}
+            className="text-sm"
           />
-        </SettingRow>
-        <SettingRow label="קוד מוסד" sub="מזהה הישיבה בנדרים פלוס">
-          <input
-            style={inputStyle}
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">קוד מוסד</Label>
+          <p className="text-xs text-muted-foreground">מזהה הישיבה בנדרים פלוס</p>
+          <Input
             value={form.nedarimInstitutionCode}
             onChange={e => setForm(p => ({ ...p, nedarimInstitutionCode: e.target.value }))}
             placeholder="IL-12345"
+            className="text-sm"
           />
-        </SettingRow>
-        <SettingRow label="מפתח API" sub="סודי – אל תשתף">
-          <input
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">מפתח API</Label>
+          <p className="text-xs text-muted-foreground">סודי — אל תשתף</p>
+          <Input
             type="password"
-            style={inputStyle}
             value={form.nedarimApiKey}
             onChange={e => setForm(p => ({ ...p, nedarimApiKey: e.target.value }))}
+            className="text-sm"
           />
-        </SettingRow>
-        <div style={{ marginTop: 16 }}>
-          <button
-            type="submit"
-            className="flex items-center gap-2 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-all duration-150 hover:opacity-90"
-            style={{ background: saved ? '#4caf50' : NAVY, boxShadow: '0 4px 12px rgba(30,49,102,0.2)' }}
-          >
-            <Save size={15} />
-            {saved ? '✓ נשמר!' : 'שמור הגדרות'}
-          </button>
         </div>
-      </SettingsCard>
-    </form>
+        <Button
+          type="submit"
+          className={cn(
+            'gap-2 font-bold transition-smooth',
+            saved ? 'bg-green-600 hover:bg-green-700 text-white' : 'gradient-primary'
+          )}
+        >
+          <Save size={14} />
+          {saved ? '✓ נשמר!' : 'שמור הגדרות'}
+        </Button>
+      </form>
+    </Card>
   );
 }
 
-function UsersSettings() {
-  const { users, addUser, updateUser, deleteUser, currentUser } = useStore();
-  const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', username: '', password: '', role: 'kupa' as UserRole });
+// ─── User Dialog ───────────────────────────────────────────────────────────────
+interface UserDialogProps {
+  open: boolean;
+  onClose: () => void;
+  editUser?: User;
+}
 
-  const roleLabels: Record<UserRole, string> = {
-    kupa: 'קופה בלבד',
-    manager: 'מנהל',
-    admin: 'מנהל ראשי',
-  };
+function UserDialog({ open, onClose, editUser }: UserDialogProps) {
+  const { addUser, updateUser } = useStore();
+  const [form, setForm] = useState({
+    name: editUser?.name ?? '',
+    username: editUser?.username ?? '',
+    password: editUser?.password ?? '',
+    role: (editUser?.role ?? 'kupa') as UserRole,
+  });
 
-  const roleBadge: Record<UserRole, { bg: string; color: string }> = {
-    kupa: { bg: '#e8f5e9', color: '#2e7d32' },
-    manager: { bg: '#eef0fb', color: NAVY },
-    admin: { bg: '#f3e5f5', color: '#6a1b9a' },
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editId) { updateUser(editId, form); setEditId(null); }
-    else addUser(form);
-    setForm({ name: '', username: '', password: '', role: 'kupa' });
-    setShowForm(false);
-  };
-
-  const startEdit = (u: User) => {
-    setForm({ name: u.name, username: u.username, password: u.password, role: u.role });
-    setEditId(u.id);
-    setShowForm(true);
+  const handleSave = () => {
+    if (!form.name.trim() || !form.username.trim()) return;
+    if (editUser) {
+      updateUser(editUser.id, form);
+    } else {
+      addUser(form);
+    }
+    onClose();
   };
 
   return (
-    <SettingsCard title="👥 ניהול משתמשים">
-      <div style={{ marginBottom: 14 }}>
-        <button
-          onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ name: '', username: '', password: '', role: 'kupa' }); }}
-          className="flex items-center gap-2 text-white text-sm font-bold px-4 py-2.5 rounded-xl hover:opacity-90 transition"
-          style={{ background: NAVY }}
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{editUser ? 'עריכת משתמש' : 'הוספת משתמש'}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {([
+            { label: 'שם מלא', key: 'name', type: 'text' },
+            { label: 'שם משתמש', key: 'username', type: 'text' },
+            { label: 'סיסמה', key: 'password', type: 'password' },
+          ] as { label: string; key: keyof typeof form; type: string }[]).map(f => (
+            <div key={f.key} className="space-y-1">
+              <Label className="text-xs text-muted-foreground">{f.label}</Label>
+              <Input
+                type={f.type}
+                value={form[f.key] as string}
+                onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                className="text-sm"
+              />
+            </div>
+          ))}
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">תפקיד</Label>
+            <select
+              value={form.role}
+              onChange={e => setForm(p => ({ ...p, role: e.target.value as UserRole }))}
+              className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {(Object.entries(roleLabels) as [UserRole, string][]).map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>ביטול</Button>
+          <Button onClick={handleSave}>{editUser ? 'שמור' : 'הוסף'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Users Management ──────────────────────────────────────────────────────────
+function UsersManagement() {
+  const { users, deleteUser, currentUser } = useStore();
+  const [dlg, setDlg] = useState<{ open: boolean; edit?: User }>({ open: false });
+
+  return (
+    <Card className="shadow-soft overflow-hidden">
+      <div className="flex items-center justify-between p-5 border-b border-border">
+        <Button
+          onClick={() => setDlg({ open: true })}
+          className="gradient-primary shadow-soft gap-2 font-bold text-sm"
         >
-          <Plus size={14} /> הוסף משתמש
-        </button>
+          <Plus size={14} />
+          הוסף משתמש
+        </Button>
+        <div className="flex items-center gap-2">
+          <span className="text-xl">👥</span>
+          <h2 className="text-base font-black text-primary">ניהול משתמשים</h2>
+        </div>
       </div>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} style={{ background: '#eef0fb', borderRadius: 14, padding: 16, marginBottom: 14, border: '1.5px solid #c5cae9' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 12, textAlign: 'right' }}>
-            {editId ? 'עריכת משתמש' : 'משתמש חדש'}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-            {[
-              { key: 'name', label: 'שם מלא', type: 'text' },
-              { key: 'username', label: 'שם משתמש', type: 'text' },
-              { key: 'password', label: 'סיסמה', type: 'password' },
-            ].map(f => (
-              <div key={f.key}>
-                <label style={{ display: 'block', fontSize: 11, color: '#666', marginBottom: 4, textAlign: 'right' }}>{f.label}</label>
-                <input
-                  type={f.type}
-                  value={form[f.key as keyof typeof form] as string}
-                  onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                  required
-                  style={{ ...inputStyle, width: '100%' }}
-                />
-              </div>
-            ))}
-            <div>
-              <label style={{ display: 'block', fontSize: 11, color: '#666', marginBottom: 4, textAlign: 'right' }}>תפקיד</label>
-              <select
-                value={form.role}
-                onChange={e => setForm(p => ({ ...p, role: e.target.value as UserRole }))}
-                style={{ ...inputStyle, width: '100%', cursor: 'pointer' }}
-              >
-                {Object.entries(roleLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" onClick={() => { setShowForm(false); setEditId(null); }}
-              style={{ flex: 1, padding: '8px', border: '1.5px solid #e0e4f0', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: '#fff' }}>
-              ביטול
-            </button>
-            <button type="submit"
-              style={{ flex: 1, padding: '8px', background: NAVY, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-              שמור
-            </button>
-          </div>
-        </form>
-      )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {users.map(u => {
-          const rb = roleBadge[u.role];
-          return (
-            <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f9fd', borderRadius: 14, padding: '12px 16px' }}>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {u.id !== currentUser?.id && (
-                  <button onClick={() => { if (window.confirm('למחוק משתמש זה?')) deleteUser(u.id); }}
-                    style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#ffebee', color: '#e57373', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Trash2 size={13} />
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/40 hover:bg-muted/40">
+            <TableHead className="text-xs font-bold text-muted-foreground">שם</TableHead>
+            <TableHead className="text-xs font-bold text-muted-foreground">שם משתמש</TableHead>
+            <TableHead className="text-xs font-bold text-muted-foreground">תפקיד</TableHead>
+            <TableHead className="text-xs font-bold text-muted-foreground">פעולות</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {users.map(u => (
+            <TableRow key={u.id}>
+              <TableCell className="font-bold text-primary text-sm py-2.5">{u.name}</TableCell>
+              <TableCell className="text-sm text-muted-foreground py-2.5">{u.username}</TableCell>
+              <TableCell className="py-2.5">
+                <Badge className={cn('border text-xs', roleBadgeClass[u.role])}>
+                  {roleLabels[u.role]}
+                </Badge>
+              </TableCell>
+              <TableCell className="py-2.5">
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setDlg({ open: true, edit: u })}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-smooth"
+                    title="ערוך"
+                  >
+                    <Pencil size={12} />
                   </button>
-                )}
-                <button onClick={() => startEdit(u)}
-                  style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef0fb', color: '#5c6bc0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Edit2 size={13} />
-                </button>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: NAVY }}>{u.name}</div>
-                <div style={{ fontSize: 11, color: '#9fa8da', marginTop: 2 }}>{u.username}</div>
-              </div>
-              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: rb.bg, color: rb.color }}>
-                {roleLabels[u.role]}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </SettingsCard>
+                  {u.id !== currentUser?.id && (
+                    <button
+                      onClick={() => { if (window.confirm('למחוק משתמש זה?')) deleteUser(u.id); }}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-smooth"
+                      title="מחק"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <UserDialog
+        open={dlg.open}
+        onClose={() => setDlg({ open: false })}
+        editUser={dlg.edit}
+      />
+    </Card>
   );
 }
 
-function SuppliersSettings() {
-  const { suppliers, addSupplier, updateSupplier, deleteSupplier } = useStore();
-  const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', type: 'purchase' as AgentType, contactInfo: '', phone: '' });
+// ─── Supplier Dialog ───────────────────────────────────────────────────────────
+interface SupplierDialogProps {
+  open: boolean;
+  onClose: () => void;
+  editSupplier?: Supplier;
+}
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editId) { updateSupplier(editId, form); setEditId(null); }
-    else addSupplier(form);
-    setForm({ name: '', type: 'purchase', contactInfo: '', phone: '' });
-    setShowForm(false);
+function SupplierDialog({ open, onClose, editSupplier }: SupplierDialogProps) {
+  const { addSupplier, updateSupplier } = useStore();
+  const [form, setForm] = useState({
+    name: editSupplier?.name ?? '',
+    type: (editSupplier?.type ?? 'purchase') as AgentType,
+    contactInfo: editSupplier?.contactInfo ?? '',
+    phone: editSupplier?.phone ?? '',
+  });
+
+  const handleSave = () => {
+    if (!form.name.trim()) return;
+    if (editSupplier) {
+      updateSupplier(editSupplier.id, form);
+    } else {
+      addSupplier(form);
+    }
+    onClose();
   };
-
-  const startEdit = (s: Supplier) => {
-    setForm({ name: s.name, type: s.type, contactInfo: s.contactInfo, phone: s.phone });
-    setEditId(s.id);
-    setShowForm(true);
-  };
-
-  const typeBadge = (t: AgentType) => t === 'purchase'
-    ? { label: 'קניה', bg: '#fff3e0', color: '#e65100' }
-    : { label: 'קומיסיון', bg: '#f3e5f5', color: '#6a1b9a' };
 
   return (
-    <SettingsCard title="🏭 ניהול ספקים וסוכנים">
-      <div style={{ marginBottom: 14 }}>
-        <button
-          onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ name: '', type: 'purchase', contactInfo: '', phone: '' }); }}
-          className="flex items-center gap-2 text-white text-sm font-bold px-4 py-2.5 rounded-xl hover:opacity-90 transition"
-          style={{ background: NAVY }}
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{editSupplier ? 'עריכת ספק' : 'הוספת ספק'}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {([
+            { label: 'שם ספק', key: 'name', type: 'text' },
+            { label: 'טלפון', key: 'phone', type: 'tel' },
+            { label: 'פרטי קשר', key: 'contactInfo', type: 'text' },
+          ] as { label: string; key: keyof typeof form; type: string }[]).map(f => (
+            <div key={f.key} className="space-y-1">
+              <Label className="text-xs text-muted-foreground">{f.label}</Label>
+              <Input
+                type={f.type}
+                value={form[f.key] as string}
+                onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                className="text-sm"
+              />
+            </div>
+          ))}
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">סוג</Label>
+            <select
+              value={form.type}
+              onChange={e => setForm(p => ({ ...p, type: e.target.value as AgentType }))}
+              className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="purchase">קניה</option>
+              <option value="commission">קומיסיון</option>
+            </select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>ביטול</Button>
+          <Button onClick={handleSave}>{editSupplier ? 'שמור' : 'הוסף'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Suppliers Management ──────────────────────────────────────────────────────
+function SuppliersManagement() {
+  const { suppliers, deleteSupplier } = useStore();
+  const [dlg, setDlg] = useState<{ open: boolean; edit?: Supplier }>({ open: false });
+
+  const typeBadge = (t: AgentType) =>
+    t === 'purchase'
+      ? 'bg-orange-100 text-orange-700 border-orange-200'
+      : 'bg-purple-100 text-purple-700 border-purple-200';
+
+  const typeLabel = (t: AgentType) => (t === 'purchase' ? 'קניה' : 'קומיסיון');
+
+  return (
+    <Card className="shadow-soft overflow-hidden">
+      <div className="flex items-center justify-between p-5 border-b border-border">
+        <Button
+          onClick={() => setDlg({ open: true })}
+          className="gradient-primary shadow-soft gap-2 font-bold text-sm"
         >
-          <Plus size={14} /> הוסף ספק
-        </button>
+          <Plus size={14} />
+          הוסף ספק
+        </Button>
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🏭</span>
+          <h2 className="text-base font-black text-primary">ניהול ספקים וסוכנים</h2>
+        </div>
       </div>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} style={{ background: '#eef0fb', borderRadius: 14, padding: 16, marginBottom: 14, border: '1.5px solid #c5cae9' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 12, textAlign: 'right' }}>
-            {editId ? 'עריכת ספק' : 'ספק חדש'}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-            {[
-              { key: 'name', label: 'שם', type: 'text', required: true },
-              { key: 'phone', label: 'טלפון', type: 'text', required: false },
-              { key: 'contactInfo', label: 'פרטי קשר', type: 'text', required: false },
-            ].map(f => (
-              <div key={f.key}>
-                <label style={{ display: 'block', fontSize: 11, color: '#666', marginBottom: 4, textAlign: 'right' }}>{f.label}</label>
-                <input
-                  type={f.type}
-                  value={form[f.key as keyof typeof form] as string}
-                  onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                  required={f.required}
-                  style={{ ...inputStyle, width: '100%' }}
-                />
-              </div>
+      {suppliers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+          <div className="text-4xl mb-3">🏭</div>
+          <p className="text-sm font-semibold">אין ספקים מוגדרים</p>
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableHead className="text-xs font-bold text-muted-foreground">שם</TableHead>
+              <TableHead className="text-xs font-bold text-muted-foreground">סוג</TableHead>
+              <TableHead className="text-xs font-bold text-muted-foreground">טלפון</TableHead>
+              <TableHead className="text-xs font-bold text-muted-foreground">פרטי קשר</TableHead>
+              <TableHead className="text-xs font-bold text-muted-foreground">פעולות</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {suppliers.map(s => (
+              <TableRow key={s.id}>
+                <TableCell className="font-bold text-primary text-sm py-2.5">{s.name}</TableCell>
+                <TableCell className="py-2.5">
+                  <Badge className={cn('border text-xs', typeBadge(s.type))}>
+                    {typeLabel(s.type)}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground py-2.5">{s.phone || '—'}</TableCell>
+                <TableCell className="text-sm text-muted-foreground py-2.5">{s.contactInfo || '—'}</TableCell>
+                <TableCell className="py-2.5">
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setDlg({ open: true, edit: s })}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-smooth"
+                      title="ערוך"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    <button
+                      onClick={() => { if (window.confirm('למחוק ספק זה?')) deleteSupplier(s.id); }}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-smooth"
+                      title="מחק"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </TableCell>
+              </TableRow>
             ))}
-            <div>
-              <label style={{ display: 'block', fontSize: 11, color: '#666', marginBottom: 4, textAlign: 'right' }}>סוג</label>
-              <select
-                value={form.type}
-                onChange={e => setForm(p => ({ ...p, type: e.target.value as AgentType }))}
-                style={{ ...inputStyle, width: '100%', cursor: 'pointer' }}
-              >
-                <option value="purchase">קניה</option>
-                <option value="commission">קומיסיון</option>
-              </select>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" onClick={() => { setShowForm(false); setEditId(null); }}
-              style={{ flex: 1, padding: '8px', border: '1.5px solid #e0e4f0', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: '#fff' }}>
-              ביטול
-            </button>
-            <button type="submit"
-              style={{ flex: 1, padding: '8px', background: NAVY, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-              שמור
-            </button>
-          </div>
-        </form>
+          </TableBody>
+        </Table>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {suppliers.length === 0 && (
-          <p style={{ textAlign: 'center', color: '#aaa', padding: '16px 0', fontSize: 13 }}>אין ספקים מוגדרים</p>
-        )}
-        {suppliers.map(s => {
-          const tb = typeBadge(s.type);
-          return (
-            <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8f9fd', borderRadius: 14, padding: '12px 16px' }}>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => { if (window.confirm('למחוק ספק זה?')) deleteSupplier(s.id); }}
-                  style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#ffebee', color: '#e57373', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Trash2 size={13} />
-                </button>
-                <button onClick={() => startEdit(s)}
-                  style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef0fb', color: '#5c6bc0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Edit2 size={13} />
-                </button>
-              </div>
-              <div style={{ textAlign: 'right', flex: 1, margin: '0 12px' }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: NAVY }}>{s.name}</div>
-                <div style={{ fontSize: 11, color: '#9fa8da', marginTop: 2 }}>{s.phone} {s.contactInfo && `| ${s.contactInfo}`}</div>
-              </div>
-              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: tb.bg, color: tb.color, whiteSpace: 'nowrap' }}>
-                {tb.label}
-              </span>
-            </div>
-          );
-        })}
+      <SupplierDialog
+        open={dlg.open}
+        onClose={() => setDlg({ open: false })}
+        editSupplier={dlg.edit}
+      />
+    </Card>
+  );
+}
+
+// ─── Main Page ─────────────────────────────────────────────────────────────────
+type Section = 'nedarim' | 'users' | 'suppliers';
+
+export default function HagdarotPage() {
+  const [section, setSection] = useState<Section>('nedarim');
+
+  const sections: { id: Section; label: string }[] = [
+    { id: 'nedarim',   label: '🔗 נדרים פלוס' },
+    { id: 'users',     label: '👥 משתמשים' },
+    { id: 'suppliers', label: '🏭 ספקים' },
+  ];
+
+  return (
+    <div className="space-y-5" dir="rtl">
+
+      {/* ── Section pill tabs ── */}
+      <div className="inline-flex gap-1.5 bg-muted/60 rounded-2xl p-1.5">
+        {sections.map(s => (
+          <button
+            key={s.id}
+            onClick={() => setSection(s.id)}
+            className={cn(
+              'px-5 py-2 rounded-xl text-sm font-bold transition-smooth',
+              section === s.id
+                ? 'bg-card text-foreground shadow-soft'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
-    </SettingsCard>
+
+      {section === 'nedarim'   && <NedarimSettings />}
+      {section === 'users'     && <UsersManagement />}
+      {section === 'suppliers' && <SuppliersManagement />}
+    </div>
   );
 }
