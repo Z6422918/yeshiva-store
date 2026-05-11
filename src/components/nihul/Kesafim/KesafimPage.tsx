@@ -5,74 +5,101 @@ import ExpensesTab from './ExpensesTab';
 import DebtsTab from './DebtsTab';
 import { Card } from '../../ui/card';
 import { cn } from '../../../lib/utils';
+import {
+  TrendingUp, TrendingDown, Vault, Wallet, Banknote, CreditCard,
+  ShieldCheck, HandCoins, Package, AlertCircle,
+} from 'lucide-react';
 
 type SubTab = 'income' | 'expenses' | 'debts';
 
-// ─── Mini stat card ────────────────────────────────────────────────────────────
-function BalanceCard({
-  icon,
-  label,
-  value,
-  sub,
-  colorClass,
-  borderClass,
-  bgClass,
+const subTabs = [
+  { value: 'income'   as SubTab, label: 'הכנסות',  icon: TrendingUp },
+  { value: 'expenses' as SubTab, label: 'הוצאות',  icon: TrendingDown },
+  { value: 'debts'    as SubTab, label: 'חובות',   icon: AlertCircle },
+];
+
+const fmtMoney = (n: number) => `₪${n.toFixed(2)}`;
+
+// ─── Row inside a card ─────────────────────────────────────────────────────────
+function Row({
+  label, icon, value, bold, positive, negative,
 }: {
-  icon: string;
-  label: string;
-  value: string;
-  sub: string;
-  colorClass: string;
-  borderClass: string;
-  bgClass: string;
+  label: string; icon?: React.ReactNode; value: number;
+  bold?: boolean; positive?: boolean; negative?: boolean;
 }) {
   return (
-    <div className={cn('rounded-2xl border-2 p-5 text-center shadow-soft', borderClass, bgClass)}>
-      <div className="text-3xl mb-2">{icon}</div>
-      <div className={cn('text-xs font-black uppercase tracking-wide mb-2', colorClass)}>{label}</div>
-      <div className={cn('text-2xl font-black', colorClass)}>{value}</div>
-      <div className="text-xs text-muted-foreground mt-2">{sub}</div>
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        {icon}<span>{label}</span>
+      </div>
+      <span className={cn(
+        bold && 'font-bold text-base',
+        positive && 'text-green-600 font-semibold',
+        negative && 'text-destructive font-semibold',
+      )}>{fmtMoney(value)}</span>
     </div>
   );
 }
 
-// ─── Inventory summary card ────────────────────────────────────────────────────
+// ─── Inventory card ────────────────────────────────────────────────────────────
 function InventoryCard() {
   const { products, suppliers } = useStore();
 
-  const purchaseValue = products
-    .filter(p => suppliers.find(s => s.id === p.supplierId)?.type === 'purchase')
-    .reduce((sum, p) => sum + p.variants.reduce((vs, v) => vs + v.currentStock * v.costPrice, 0), 0);
+  let purchaseInv = 0, commissionInv = 0, purchaseProfit = 0, commissionProfit = 0;
 
-  const commissionValue = products
-    .filter(p => suppliers.find(s => s.id === p.supplierId)?.type === 'commission')
-    .reduce((sum, p) => sum + p.variants.reduce((vs, v) => vs + v.currentStock * v.costPrice, 0), 0);
+  for (const p of products) {
+    const stype = suppliers.find(s => s.id === p.supplierId)?.type ?? 'purchase';
+    for (const v of p.variants) {
+      const supplies = v.supplies ?? [];
+      const supplied = supplies.reduce((s, x) => s + x.quantity, 0);
+      const suppliedCost = supplies.reduce((s, x) => s + x.quantity * x.costPerUnit, 0);
+      const avgCost = supplied > 0 ? suppliedCost / supplied : v.costPrice;
+      const remaining = v.currentStock;
+      const projectedPrice = v.yeshivaPrice || 0;
 
-  const purchaseProfit = products
-    .filter(p => suppliers.find(s => s.id === p.supplierId)?.type === 'purchase')
-    .reduce((sum, p) => sum + p.variants.reduce((vs, v) => vs + v.currentStock * (v.yeshivaPrice - v.costPrice), 0), 0);
+      if (stype === 'commission') {
+        commissionInv += remaining * avgCost;
+        commissionProfit += remaining * Math.max(0, projectedPrice - avgCost);
+      } else {
+        purchaseInv += remaining * avgCost;
+        purchaseProfit += remaining * Math.max(0, projectedPrice - avgCost);
+      }
+    }
+  }
+
+  const inventoryValue = purchaseInv + commissionInv;
+  const expectedProfit = purchaseProfit + commissionProfit;
 
   return (
-    <Card className="shadow-soft p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-xl">📦</span>
-        <h3 className="text-sm font-black text-primary">ערך מלאי</h3>
+    <Card className="p-4 shadow-soft">
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+        <Package className="w-4 h-4 text-primary" />
+        <h3 className="font-semibold">סחורה במלאי</h3>
       </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-center">
-          <div className="text-xs text-orange-600 font-bold mb-1">קניה — עלות</div>
-          <div className="text-lg font-black text-orange-700">₪{purchaseValue.toFixed(0)}</div>
-          <div className="text-xs text-muted-foreground mt-1">סחורה שנקנתה</div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-1 text-sm">
+          <div className="font-semibold mb-1">שווי הסחורה (עלות)</div>
+          <Row label="מסוכני קנייה" value={purchaseInv} />
+          <Row label="מסוכני קומיסיון" value={commissionInv} />
+          <div className="pt-1 border-t flex justify-between font-bold">
+            <span>סך הכל</span><span>{fmtMoney(inventoryValue)}</span>
+          </div>
         </div>
-        <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
-          <div className="text-xs text-green-600 font-bold mb-1">קניה — רווח פוטנציאלי</div>
-          <div className="text-lg font-black text-green-700">₪{purchaseProfit.toFixed(0)}</div>
-          <div className="text-xs text-muted-foreground mt-1">הפרש מחיר</div>
+        <div className="space-y-1 text-sm">
+          <div className="font-semibold mb-1">רווח עצמי מהסחורה</div>
+          <Row label="קומיסיון" value={commissionProfit} positive />
+          <Row label="קנייה" value={purchaseProfit} positive />
+          <div className="pt-1 border-t flex justify-between font-bold text-green-600">
+            <span>סך הכל</span><span>{fmtMoney(expectedProfit)}</span>
+          </div>
         </div>
-        <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 text-center">
-          <div className="text-xs text-purple-600 font-bold mb-1">קומיסיון — עלות</div>
-          <div className="text-lg font-black text-purple-700">₪{commissionValue.toFixed(0)}</div>
-          <div className="text-xs text-muted-foreground mt-1">ברשות הישיבה</div>
+        <div className="space-y-1 text-sm">
+          <div className="font-semibold mb-1">סך כולל (עלות + רווח)</div>
+          <Row label="קנייה" value={purchaseInv + purchaseProfit} />
+          <Row label="קומיסיון" value={commissionInv + commissionProfit} />
+          <div className="pt-1 border-t flex justify-between font-bold text-primary">
+            <span>סך הכל</span><span>{fmtMoney(inventoryValue + expectedProfit)}</span>
+          </div>
         </div>
       </div>
     </Card>
@@ -82,114 +109,117 @@ function InventoryCard() {
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function KesafimPage() {
   const {
-    getCashNotTransferred,
-    getCreditNotTransferred,
-    getSafeBalance,
-    getTotalPurchaseDebt,
-    getTotalCommissionDebt,
-    products,
-    suppliers,
+    getCashNotTransferred, getCreditNotTransferred, getSafeBalance,
+    specialApprovals, safeEntries, supplierPayments,
   } = useStore();
-
   const [subTab, setSubTab] = useState<SubTab>('income');
 
-  const cashPending     = getCashNotTransferred();
-  const creditPending   = getCreditNotTransferred();
-  const totalPending    = cashPending + creditPending;
-  const safeBalance     = getSafeBalance();
-  const purchaseDebt    = getTotalPurchaseDebt();
-  const commissionDebt  = getTotalCommissionDebt();
-  const totalDebt       = purchaseDebt + commissionDebt;
+  const cashPending    = getCashNotTransferred();
+  const creditPending  = getCreditNotTransferred();
+  const safeBalance    = getSafeBalance();
 
-  const purchaseStockProfit = products
-    .filter(p => suppliers.find(s => s.id === p.supplierId)?.type === 'purchase')
-    .reduce((sum, p) => sum + p.variants.reduce((vs, v) => vs + v.currentStock * (v.yeshivaPrice - v.costPrice), 0), 0);
+  const totalIncomes   = safeEntries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+  const totalExpenses  = safeEntries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
 
-  const balance = totalPending + purchaseStockProfit - totalDebt;
+  const pendingApprovals = specialApprovals.filter(a => a.status === 'pending').reduce((s, a) => s + a.amount, 0);
+  const projectedIncomes = cashPending + creditPending + pendingApprovals;
 
-  const subTabs: { id: SubTab; label: string }[] = [
-    { id: 'income',   label: '💰 הכנסות' },
-    { id: 'expenses', label: '📤 הוצאות' },
-    { id: 'debts',    label: '🧾 חובות' },
-  ];
+  const gemachDebt = safeEntries
+    .filter(e => e.type === 'income' && e.description.startsWith('הלוואה'))
+    .reduce((s, e) => s + e.amount, 0);
+
+  const totalSupplierPaid = supplierPayments.reduce((s, p) => s + p.amount, 0);
+  const projectedExpenses = gemachDebt;
+
+  const finalBalance = safeBalance + cashPending + projectedIncomes - projectedExpenses;
 
   return (
-    <div className="space-y-5" dir="rtl">
+    <div className="space-y-4" dir="rtl">
 
-      {/* ── Big balance banner ── */}
-      <div className="gradient-primary rounded-2xl p-6 flex items-center justify-between shadow-elegant">
-        <div>
-          <div className="text-xs font-bold text-primary-foreground/70 mb-1">
-            ⚖️ מאזן כולל — הכנסות מול הוצאות
-          </div>
-          <div className="text-4xl font-black text-primary-foreground">
-            {balance >= 0 ? '+' : ''}₪{balance.toFixed(2)}
-          </div>
-          <div className="text-xs text-primary-foreground/50 mt-1">לא כולל סחורה בקומיסיון</div>
+      {/* ── Big balance (text only, no card) ── */}
+      <div className="text-center py-3">
+        <div className="text-sm text-muted-foreground mb-1">מאזן סופי צפוי</div>
+        <div className={cn(
+          'text-5xl md:text-6xl font-extrabold tracking-tight',
+          finalBalance >= 0 ? 'text-green-600' : 'text-destructive'
+        )}>
+          {fmtMoney(finalBalance)}
         </div>
-        <div className="text-5xl opacity-60">📊</div>
       </div>
 
-      {/* ── Three summary cards ── */}
-      <div className="grid grid-cols-3 gap-4">
-        <BalanceCard
-          icon="💵"
-          label="הכנסות צפויות"
-          value={`₪${totalPending.toFixed(0)}`}
-          sub="מזומן + אשראי ממתין"
-          colorClass="text-green-700"
-          borderClass="border-green-200"
-          bgClass="bg-green-50"
-        />
-        <BalanceCard
-          icon="🏦"
-          label="כספת"
-          value={`₪${safeBalance.toFixed(0)}`}
-          sub="יתרה נוכחית"
-          colorClass="text-primary"
-          borderClass="border-primary/30"
-          bgClass="bg-primary/5"
-        />
-        <BalanceCard
-          icon="📤"
-          label="הוצאות צפויות"
-          value={`₪${totalDebt.toFixed(0)}`}
-          sub="חובות לספקים"
-          colorClass="text-destructive"
-          borderClass="border-destructive/30"
-          bgClass="bg-destructive/5"
-        />
+      {/* ── 3-column overview ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+        {/* Projected Incomes */}
+        <Card className="p-4 shadow-soft border-green-200 bg-green-50/50">
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+            <TrendingUp className="w-4 h-4 text-green-600" />
+            <h3 className="font-semibold">הכנסות צפויות</h3>
+          </div>
+          <div className="space-y-2 text-sm">
+            <Row label="מזומן" icon={<Banknote className="w-4 h-4" />} value={cashPending} />
+            <Row label="אשראי" icon={<CreditCard className="w-4 h-4" />} value={creditPending} />
+            <Row label="אישורים מיוחדים" icon={<ShieldCheck className="w-4 h-4" />} value={pendingApprovals} />
+            <div className="pt-2 border-t flex items-center justify-between font-bold text-green-600">
+              <span>סך הכל</span>
+              <span>{fmtMoney(projectedIncomes)}</span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Safe */}
+        <Card className="p-4 shadow-soft border-primary/30 bg-primary/5">
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+            <Vault className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold">כספת</h3>
+          </div>
+          <div className="space-y-2 text-sm">
+            <Row label="סכום קיים" icon={<Wallet className="w-4 h-4" />} value={safeBalance} bold />
+            <Row label="סך הכנסות" icon={<TrendingUp className="w-4 h-4" />} value={totalIncomes} positive />
+            <Row label="סך הוצאות" icon={<TrendingDown className="w-4 h-4" />} value={totalExpenses} negative />
+          </div>
+        </Card>
+
+        {/* Projected Expenses */}
+        <Card className="p-4 shadow-soft border-destructive/30 bg-destructive/5">
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+            <TrendingDown className="w-4 h-4 text-destructive" />
+            <h3 className="font-semibold">הוצאות צפויות</h3>
+          </div>
+          <div className="space-y-2 text-sm">
+            <Row label='חוב לגמ"חים' icon={<HandCoins className="w-4 h-4" />} value={gemachDebt} negative />
+            <div className="pt-2 border-t flex items-center justify-between font-bold text-destructive">
+              <span>סך הכל</span>
+              <span>{fmtMoney(projectedExpenses)}</span>
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* ── Inventory card ── */}
       <InventoryCard />
 
-      {/* ── Main card with sub-tabs ── */}
-      <Card className="shadow-soft overflow-hidden">
-        {/* Tab bar */}
-        <div className="flex gap-2 p-4 border-b border-border">
-          {subTabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setSubTab(t.id)}
-              className={cn(
-                'text-xs font-bold px-4 py-2 rounded-xl transition-smooth',
-                subTab === t.id
-                  ? 'gradient-primary text-primary-foreground shadow-soft'
-                  : 'bg-muted text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      {/* ── Sub-tabs ── */}
+      <div className="grid grid-cols-3 gap-1 bg-muted p-1 rounded-lg">
+        {subTabs.map(t => (
+          <button
+            key={t.value}
+            onClick={() => setSubTab(t.value)}
+            className={cn(
+              'inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all',
+              subTab === t.value
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <t.icon className="w-4 h-4" /> {t.label}
+          </button>
+        ))}
+      </div>
 
-        <div className="p-5">
-          {subTab === 'income'   && <IncomeTab />}
-          {subTab === 'expenses' && <ExpensesTab />}
-          {subTab === 'debts'    && <DebtsTab />}
-        </div>
-      </Card>
+      {subTab === 'income'   && <IncomeTab />}
+      {subTab === 'expenses' && <ExpensesTab />}
+      {subTab === 'debts'    && <DebtsTab />}
     </div>
   );
 }

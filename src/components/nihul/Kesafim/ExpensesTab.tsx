@@ -1,106 +1,167 @@
 import { useState } from 'react';
 import { useStore } from '../../../store/useStore';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2, Receipt, Wallet } from 'lucide-react';
+import { Card } from '../../ui/card';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
+
+const fmtMoney = (n: number) => `₪${n.toFixed(2)}`;
+const fmtDate = (d: string) => new Date(d).toLocaleDateString('he-IL');
 
 export default function ExpensesTab() {
-  const { addSafeEntry, safeEntries, suppliers, paySupplier } = useStore();
-  const [showForm, setShowForm] = useState(false);
-  const [showSupplierPay, setShowSupplierPay] = useState(false);
-  const [form, setForm] = useState({ amount: '', description: '' });
-  const [payForm, setPayForm] = useState({ supplierId: '', amount: '', description: '' });
+  const {
+    safeEntries, addSafeEntry, deleteSafeEntry,
+    suppliers, paySupplier,
+    getSafeBalance,
+  } = useStore();
 
-  const handleExpense = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.amount || !form.description) return;
-    addSafeEntry({
-      date: new Date().toISOString().split('T')[0],
-      type: 'expense',
-      source: 'special',
-      amount: Number(form.amount),
-      description: form.description,
-    });
-    setForm({ amount: '', description: '' });
-    setShowForm(false);
+  const [open, setOpen] = useState(false);
+  const [supplierPayOpen, setSupplierPayOpen] = useState(false);
+
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState('');
+
+  const [supplierId, setSupplierId] = useState('');
+  const [supplierAmount, setSupplierAmount] = useState('');
+  const [supplierDesc, setSupplierDesc] = useState('');
+
+  const available = getSafeBalance();
+
+  const expenses = safeEntries
+    .filter(e => e.type === 'expense')
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const submitExpense = () => {
+    const n = parseFloat(amount);
+    if (!description.trim() || !n || n <= 0) return;
+    addSafeEntry({ date, type: 'expense', source: 'special', amount: n, description: description.trim() });
+    setAmount(''); setDescription(''); setOpen(false);
   };
 
-  const handlePaySupplier = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!payForm.supplierId || !payForm.amount) return;
-    paySupplier(payForm.supplierId, Number(payForm.amount), payForm.description);
-    setPayForm({ supplierId: '', amount: '', description: '' });
-    setShowSupplierPay(false);
+  const submitSupplierPay = () => {
+    const n = parseFloat(supplierAmount);
+    if (!supplierId || !n || n <= 0) return;
+    paySupplier(supplierId, n, supplierDesc || 'תשלום לספק');
+    setSupplierId(''); setSupplierAmount(''); setSupplierDesc(''); setSupplierPayOpen(false);
   };
-
-  const expenses = safeEntries.filter(e => e.type === 'expense').sort((a, b) => b.date.localeCompare(a.date));
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2 flex-wrap">
-        <button
-          onClick={() => { setShowForm(!showForm); setShowSupplierPay(false); }}
-          className="flex items-center gap-1 text-sm bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 transition"
-        >
-          <Plus size={15} /> הוצאה מהכספת
-        </button>
-        <button
-          onClick={() => { setShowSupplierPay(!showSupplierPay); setShowForm(false); }}
-          className="flex items-center gap-1 text-sm bg-orange-500 text-white px-3 py-2 rounded-lg hover:bg-orange-600 transition"
-        >
-          <Plus size={15} /> תשלום לספק
-        </button>
-        <span className="text-sm font-semibold text-gray-700 mr-auto self-center">הוצאות מהכספת</span>
+    <Card className="p-4 shadow-soft">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div>
+          <h3 className="font-semibold flex items-center gap-2"><Receipt className="w-4 h-4" />הוצאות</h3>
+          <p className="text-xs text-muted-foreground">יורדות מיתרת הכספת • זמין: {fmtMoney(available)}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setSupplierPayOpen(true)} variant="outline" className="gap-2">
+            <Wallet className="w-4 h-4" /> תשלום לספק
+          </Button>
+          <Button className="gap-2" onClick={() => setOpen(true)}>
+            <Plus className="w-4 h-4" /> הוצאה חדשה
+          </Button>
+        </div>
       </div>
 
-      {showForm && (
-        <form onSubmit={handleExpense} className="bg-red-50 rounded-xl p-4 space-y-3 border border-red-100">
-          <h4 className="text-sm font-semibold text-gray-700 text-right">הוצאה מהכספת</h4>
-          <input type="number" step="0.01" placeholder="סכום ₪" value={form.amount}
-            onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-red-300" />
-          <input placeholder="תיאור" value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))} required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-red-300" />
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-2 border border-gray-300 rounded-lg text-sm">ביטול</button>
-            <button type="submit" className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold">שמור</button>
-          </div>
-        </form>
-      )}
-
-      {showSupplierPay && (
-        <form onSubmit={handlePaySupplier} className="bg-orange-50 rounded-xl p-4 space-y-3 border border-orange-100">
-          <h4 className="text-sm font-semibold text-gray-700 text-right">תשלום לספק</h4>
-          <select value={payForm.supplierId} onChange={e => setPayForm(f => ({ ...f, supplierId: e.target.value }))} required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-orange-300">
-            <option value="">בחר ספק</option>
-            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name} ({s.type === 'purchase' ? 'קניה' : 'קומיסיון'})</option>)}
-          </select>
-          <input type="number" step="0.01" placeholder="סכום ₪" value={payForm.amount}
-            onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-orange-300" />
-          <input placeholder="תיאור" value={payForm.description}
-            onChange={e => setPayForm(f => ({ ...f, description: e.target.value }))}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-orange-300" />
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setShowSupplierPay(false)} className="flex-1 py-2 border border-gray-300 rounded-lg text-sm">ביטול</button>
-            <button type="submit" className="flex-1 py-2 bg-orange-500 text-white rounded-lg text-sm font-semibold">שלם</button>
-          </div>
-        </form>
-      )}
-
-      <div className="space-y-2">
-        {expenses.length === 0 ? (
-          <p className="text-center text-gray-400 py-4">אין הוצאות עדיין</p>
-        ) : expenses.map(e => (
-          <div key={e.id} className="flex justify-between items-center bg-red-50 rounded-lg px-4 py-2.5">
-            <span className="font-bold text-red-600">-₪{e.amount.toFixed(2)}</span>
-            <div className="text-right">
-              <p className="text-sm text-gray-700">{e.description}</p>
-              <p className="text-xs text-gray-400">{e.date}</p>
+      {/* New expense dialog */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent dir="rtl">
+          <DialogHeader><DialogTitle>הוצאה חדשה</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>תאריך</Label>
+              <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>תיאור</Label>
+              <Input value={description} onChange={e => setDescription(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>סכום (₪)</Label>
+              <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} />
             </div>
           </div>
-        ))}
-      </div>
-    </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>ביטול</Button>
+            <Button onClick={submitExpense}>אישור</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Supplier payment dialog */}
+      <Dialog open={supplierPayOpen} onOpenChange={setSupplierPayOpen}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Wallet className="w-5 h-5" />תשלום לספק</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>ספק</Label>
+              <select
+                value={supplierId}
+                onChange={e => setSupplierId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">בחר ספק</option>
+                {suppliers.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.type === 'purchase' ? 'קניה' : 'קומיסיון'})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label>סכום (₪)</Label>
+              <Input type="number" value={supplierAmount} onChange={e => setSupplierAmount(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>תיאור</Label>
+              <Input value={supplierDesc} onChange={e => setSupplierDesc(e.target.value)} placeholder="פרטי התשלום" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSupplierPayOpen(false)}>ביטול</Button>
+            <Button onClick={submitSupplierPay}>אישור</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {expenses.length === 0 ? (
+        <div className="text-center text-muted-foreground py-8 text-sm">אין הוצאות מיוחדות</div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-right">תאריך</TableHead>
+              <TableHead className="text-right">תיאור</TableHead>
+              <TableHead className="text-right">סכום</TableHead>
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {expenses.map(e => (
+              <TableRow key={e.id}>
+                <TableCell>{fmtDate(e.date)}</TableCell>
+                <TableCell>{e.description}</TableCell>
+                <TableCell className="font-bold text-destructive">{fmtMoney(e.amount)}</TableCell>
+                <TableCell>
+                  {deleteSafeEntry && (
+                    <button
+                      onClick={() => deleteSafeEntry(e.id)}
+                      className="w-8 h-8 flex items-center justify-center rounded text-destructive hover:bg-destructive/10 transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </Card>
   );
 }

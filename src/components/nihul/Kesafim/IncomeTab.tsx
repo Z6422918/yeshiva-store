@@ -1,114 +1,163 @@
 import { useState } from 'react';
 import { useStore } from '../../../store/useStore';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2, Banknote, CreditCard, Sparkles } from 'lucide-react';
+import { Card } from '../../ui/card';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
+import { Badge } from '../../ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
+import { cn } from '../../../lib/utils';
+
+const fmtMoney = (n: number) => `₪${n.toFixed(2)}`;
+const fmtDate = (d: string) => new Date(d).toLocaleDateString('he-IL');
 
 export default function IncomeTab() {
-  const { addSafeEntry, safeEntries, transactions, transferToSafe, getCashNotTransferred, getCreditNotTransferred } = useStore();
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ source: 'special' as 'cash' | 'credit' | 'special', amount: '', description: '' });
+  const {
+    safeEntries, addSafeEntry, deleteSafeEntry,
+    transactions, transferToSafe,
+    getCashNotTransferred, getCreditNotTransferred,
+  } = useStore();
 
-  const cashPending = getCashNotTransferred();
+  const [open, setOpen] = useState(false);
+  const [type, setType] = useState<'cash' | 'credit' | 'special' | 'loan'>('cash');
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [note, setNote] = useState('');
+
+  const cashPending   = getCashNotTransferred();
   const creditPending = getCreditNotTransferred();
 
-  const handleTransfer = (source: 'cash' | 'credit') => {
-    const amount = source === 'cash' ? cashPending : creditPending;
-    if (amount <= 0) return;
-    const ids = transactions.filter(t => t.paymentMethod === source && !t.transferredToSafe).map(t => t.id);
-    transferToSafe(source, ids, amount);
+  const incomes = safeEntries
+    .filter(e => e.type === 'income')
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const handleTransfer = (src: 'cash' | 'credit') => {
+    const pending = src === 'cash' ? cashPending : creditPending;
+    if (pending <= 0) return;
+    const ids = transactions.filter(t => t.paymentMethod === src && !t.transferredToSafe).map(t => t.id);
+    transferToSafe(src, ids, pending);
   };
 
-  const handleSpecial = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.amount || !form.description) return;
-    addSafeEntry({
-      date: new Date().toISOString().split('T')[0],
-      type: 'income',
-      source: form.source,
-      amount: Number(form.amount),
-      description: form.description,
-    });
-    setForm({ source: 'special', amount: '', description: '' });
-    setShowForm(false);
+  const submit = () => {
+    const n = parseFloat(amount);
+    if (!n || n <= 0) return;
+    const desc =
+      type === 'cash'    ? 'פדיון מזומן לכספת' :
+      type === 'credit'  ? 'פדיון אשראי לכספת' :
+      type === 'loan'    ? `הלוואה${reason.trim() ? ` - ${reason.trim()}` : ''}` :
+      reason.trim() || 'הכנסה מיוחדת';
+    const src = (type === 'cash' || type === 'credit') ? type : 'special';
+    addSafeEntry({ date, type: 'income', source: src, amount: n, description: desc });
+    if (type === 'cash')   handleTransfer('cash');
+    if (type === 'credit') handleTransfer('credit');
+    setAmount(''); setReason(''); setNote(''); setOpen(false);
   };
 
-  const incomes = safeEntries.filter(e => e.type === 'income').sort((a, b) => b.date.localeCompare(a.date));
+  const typeBadge = (source: string) => {
+    if (source === 'cash')    return <Badge variant="secondary" className="gap-1"><Banknote className="w-3 h-3" />מזומן</Badge>;
+    if (source === 'credit')  return <Badge variant="secondary" className="gap-1"><CreditCard className="w-3 h-3" />אשראי</Badge>;
+    return <Badge className="gap-1 bg-purple-100 text-purple-700 border-0"><Sparkles className="w-3 h-3" />מיוחדת</Badge>;
+  };
 
   return (
-    <div className="space-y-4">
-      {/* Quick transfer buttons */}
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          onClick={() => handleTransfer('cash')}
-          disabled={cashPending <= 0}
-          className="flex flex-col items-center py-3 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
-        >
-          <span className="text-xs text-gray-500 mb-1">העבר מזומן לכספת</span>
-          <span className="font-bold text-green-700 text-lg">₪{cashPending.toFixed(2)}</span>
-        </button>
-        <button
-          onClick={() => handleTransfer('credit')}
-          disabled={creditPending <= 0}
-          className="flex flex-col items-center py-3 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
-        >
-          <span className="text-xs text-gray-500 mb-1">העבר אשראי לכספת</span>
-          <span className="font-bold text-blue-700 text-lg">₪{creditPending.toFixed(2)}</span>
-        </button>
+    <Card className="p-4 shadow-soft">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div>
+          <h3 className="font-semibold">פדיונות והכנסות לכספת</h3>
+          <p className="text-xs text-muted-foreground">
+            ממתין לפדיון: מזומן {fmtMoney(cashPending)} • אשראי {fmtMoney(creditPending)}
+          </p>
+        </div>
+        <Button className="gap-2" onClick={() => setOpen(true)}>
+          <Plus className="w-4 h-4" /> הכנסה חדשה
+        </Button>
       </div>
 
-      {/* Special income */}
-      <div className="flex justify-between items-center">
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-1 text-sm bg-blue-700 text-white px-3 py-2 rounded-lg hover:bg-blue-800 transition"
-        >
-          <Plus size={15} /> הכנסה מיוחדת
-        </button>
-        <span className="text-sm font-semibold text-gray-700">היסטוריית הכנסות לכספת</span>
-      </div>
-
-      {showForm && (
-        <form onSubmit={handleSpecial} className="bg-blue-50 rounded-xl p-4 space-y-3 border border-blue-100">
-          <select
-            value={form.source}
-            onChange={e => setForm(f => ({ ...f, source: e.target.value as 'cash'|'credit'|'special' }))}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-          >
-            <option value="cash">מזומן</option>
-            <option value="credit">אשראי</option>
-            <option value="special">הכנסה מיוחדת</option>
-          </select>
-          <input
-            type="number" step="0.01" placeholder="סכום ₪" value={form.amount}
-            onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-          <input
-            placeholder="תיאור" value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))} required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-2 border border-gray-300 rounded-lg text-sm">ביטול</button>
-            <button type="submit" className="flex-1 py-2 bg-blue-700 text-white rounded-lg text-sm font-semibold">הוסף</button>
-          </div>
-        </form>
-      )}
-
-      <div className="space-y-2">
-        {incomes.length === 0 ? (
-          <p className="text-center text-gray-400 py-4">אין הכנסות עדיין</p>
-        ) : incomes.map(e => (
-          <div key={e.id} className="flex justify-between items-center bg-green-50 rounded-lg px-4 py-2.5">
-            <span className="font-bold text-green-700">+₪{e.amount.toFixed(2)}</span>
-            <div className="text-right">
-              <p className="text-sm text-gray-700">{e.description}</p>
-              <p className="text-xs text-gray-400">{e.date} | {
-                e.source === 'cash' ? 'מזומן' : e.source === 'credit' ? 'אשראי' : 'מיוחד'
-              }</p>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent dir="rtl">
+          <DialogHeader><DialogTitle>הכנסה לכספת</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>סוג</Label>
+              <select
+                value={type}
+                onChange={e => setType(e.target.value as typeof type)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="cash">פדיון מזומן</option>
+                <option value="credit">פדיון אשראי</option>
+                <option value="special">הכנסה מיוחדת</option>
+                <option value="loan">הלוואה</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label>תאריך</Label>
+              <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>סכום (₪)</Label>
+              <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} />
+            </div>
+            {(type === 'special' || type === 'loan') && (
+              <div className="space-y-1">
+                <Label>{type === 'loan' ? 'מקור / הערה' : 'סיבה'}</Label>
+                <Input
+                  value={reason}
+                  onChange={e => setReason(e.target.value)}
+                  placeholder={type === 'loan' ? 'ממי התקבלה ההלוואה' : 'פירוט מקור ההכנסה'}
+                />
+              </div>
+            )}
+            <div className="space-y-1">
+              <Label>הערה</Label>
+              <Input value={note} onChange={e => setNote(e.target.value)} />
             </div>
           </div>
-        ))}
-      </div>
-    </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>ביטול</Button>
+            <Button onClick={submit}>אישור</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {incomes.length === 0 ? (
+        <div className="text-center text-muted-foreground py-8 text-sm">אין רשומות הכנסה</div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-right">תאריך</TableHead>
+              <TableHead className="text-right">סוג</TableHead>
+              <TableHead className="text-right">פירוט / סיבה</TableHead>
+              <TableHead className="text-right">סכום</TableHead>
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {incomes.map(r => (
+              <TableRow key={r.id}>
+                <TableCell>{fmtDate(r.date)}</TableCell>
+                <TableCell>{typeBadge(r.source)}</TableCell>
+                <TableCell>{r.description}</TableCell>
+                <TableCell className="font-bold text-green-600">{fmtMoney(r.amount)}</TableCell>
+                <TableCell>
+                  {deleteSafeEntry && (
+                    <button
+                      onClick={() => deleteSafeEntry(r.id)}
+                      className="w-8 h-8 flex items-center justify-center rounded text-destructive hover:bg-destructive/10 transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </Card>
   );
 }

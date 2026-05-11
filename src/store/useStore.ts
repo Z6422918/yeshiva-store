@@ -61,6 +61,7 @@ interface AppState {
 
   // Actions - Safe
   addSafeEntry: (entry: Omit<SafeEntry, 'id'>) => void;
+  deleteSafeEntry: (id: string) => void;
   paySupplier: (supplierId: string, amount: number, description: string) => void;
 
   // Actions - Special Approvals
@@ -278,6 +279,7 @@ export const useStore = create<AppState>()(
       })),
 
       addSafeEntry: (entry) => set(s => ({ safeEntries: [...s.safeEntries, { ...entry, id: uuidv4() }] })),
+      deleteSafeEntry: (id) => set(s => ({ safeEntries: s.safeEntries.filter(e => e.id !== id) })),
 
       paySupplier: (supplierId, amount, description) => {
         const supplier = get().suppliers.find(s => s.id === supplierId);

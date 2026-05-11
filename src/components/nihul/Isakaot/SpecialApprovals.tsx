@@ -1,14 +1,21 @@
 import { useState } from 'react';
 import { useStore } from '../../../store/useStore';
-import { Plus, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Plus, Check, X, Clock, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Card } from '../../ui/card';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
+import { Badge } from '../../ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
+import { cn } from '../../../lib/utils';
 
 export default function SpecialApprovals() {
   const { specialApprovals, addSpecialApproval, updateApprovalStatus, currentUser } = useStore();
-  const [showForm, setShowForm] = useState(false);
+  const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ description: '', amount: '', requestedBy: '' });
 
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAdd = () => {
     if (!form.description || !form.amount) return;
     addSpecialApproval({
       description: form.description,
@@ -18,96 +25,116 @@ export default function SpecialApprovals() {
       status: 'pending',
     });
     setForm({ description: '', amount: '', requestedBy: '' });
-    setShowForm(false);
+    setOpen(false);
   };
 
-  const statusIcon = (status: string) => {
-    if (status === 'approved') return <CheckCircle size={16} className="text-green-600" />;
-    if (status === 'rejected') return <XCircle size={16} className="text-red-500" />;
-    return <Clock size={16} className="text-yellow-500" />;
+  const statusBadge = (status: string) => {
+    if (status === 'approved') return <Badge className="bg-green-100 text-green-700 border-0 gap-1"><Check className="w-3 h-3" />אושר</Badge>;
+    if (status === 'rejected') return <Badge className="bg-red-100 text-red-700 border-0 gap-1"><X className="w-3 h-3" />נדחה</Badge>;
+    return <Badge className="bg-yellow-100 text-yellow-700 border-0 gap-1"><Clock className="w-3 h-3" />ממתין</Badge>;
   };
 
-  const statusLabel = (status: string) => {
-    if (status === 'approved') return 'אושר';
-    if (status === 'rejected') return 'נדחה';
-    return 'ממתין';
-  };
+  const sorted = [...specialApprovals].sort((a, b) => b.date.localeCompare(a.date));
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-1 bg-blue-700 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-800 transition"
-        >
-          <Plus size={15} />
-          אישור חדש
-        </button>
-        <h3 className="font-semibold text-gray-700">אישורים מיוחדים</h3>
+    <Card className="p-4 shadow-soft">
+      <div className="flex items-center justify-between mb-4">
+        <Button className="gap-2" onClick={() => setOpen(true)}>
+          <Plus className="w-4 h-4" /> אישור חדש
+        </Button>
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5 text-primary" />
+          <h3 className="font-semibold">אישורים מיוחדים</h3>
+        </div>
       </div>
 
-      {showForm && (
-        <form onSubmit={handleAdd} className="bg-blue-50 rounded-xl p-4 space-y-3 border border-blue-100">
-          <input
-            placeholder="תיאור"
-            value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            required
-          />
-          <input
-            type="number"
-            placeholder="סכום ₪"
-            value={form.amount}
-            onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            required
-          />
-          <input
-            placeholder="מבוקש ע׳י"
-            value={form.requestedBy}
-            onChange={e => setForm(f => ({ ...f, requestedBy: e.target.value }))}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-100">ביטול</button>
-            <button type="submit" className="flex-1 py-2 bg-blue-700 text-white rounded-lg text-sm font-semibold hover:bg-blue-800">שמור</button>
-          </div>
-        </form>
-      )}
-
-      {specialApprovals.length === 0 ? (
-        <p className="text-center text-gray-400 py-6">אין אישורים מיוחדים</p>
-      ) : (
-        <div className="space-y-2">
-          {[...specialApprovals].reverse().map(a => (
-            <div key={a.id} className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {a.status === 'pending' && currentUser?.role === 'admin' && (
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => updateApprovalStatus(a.id, 'approved', currentUser.name)}
-                      className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200"
-                    >אשר</button>
-                    <button
-                      onClick={() => updateApprovalStatus(a.id, 'rejected', currentUser.name)}
-                      className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200"
-                    >דחה</button>
-                  </div>
-                )}
-                <div className="flex items-center gap-1">
-                  {statusIcon(a.status)}
-                  <span className="text-xs text-gray-500">{statusLabel(a.status)}</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-semibold text-gray-800">{a.description}</p>
-                <p className="text-xs text-gray-500">{a.date} | {a.requestedBy} | ₪{a.amount}</p>
-              </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5" /> בקשת אישור מיוחד
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>תיאור</Label>
+              <Input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="תיאור הבקשה" />
             </div>
-          ))}
+            <div className="space-y-1">
+              <Label>סכום (₪)</Label>
+              <Input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>מבוקש ע"י</Label>
+              <Input value={form.requestedBy} onChange={e => setForm(f => ({ ...f, requestedBy: e.target.value }))} placeholder={currentUser?.name} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>ביטול</Button>
+            <Button onClick={handleAdd}>שמור</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {sorted.length === 0 ? (
+        <div className="text-center text-muted-foreground py-8">
+          <ShieldCheck className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <p className="text-sm">אין אישורים מיוחדים</p>
         </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableHead className="text-right text-xs font-bold text-muted-foreground">תאריך</TableHead>
+              <TableHead className="text-right text-xs font-bold text-muted-foreground">תיאור</TableHead>
+              <TableHead className="text-right text-xs font-bold text-muted-foreground">סכום</TableHead>
+              <TableHead className="text-right text-xs font-bold text-muted-foreground">מבוקש ע"י</TableHead>
+              <TableHead className="text-right text-xs font-bold text-muted-foreground">סטטוס</TableHead>
+              {currentUser?.role === 'admin' && (
+                <TableHead className="text-xs font-bold text-muted-foreground">פעולות</TableHead>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sorted.map(a => (
+              <TableRow key={a.id}>
+                <TableCell className="text-sm text-muted-foreground">{a.date}</TableCell>
+                <TableCell className="font-medium text-sm">{a.description}</TableCell>
+                <TableCell className="font-bold text-primary">₪{a.amount}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{a.requestedBy}</TableCell>
+                <TableCell>{statusBadge(a.status)}</TableCell>
+                {currentUser?.role === 'admin' && (
+                  <TableCell>
+                    {a.status === 'pending' && (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1 border-green-300 text-green-700 hover:bg-green-50"
+                          onClick={() => updateApprovalStatus(a.id, 'approved', currentUser.name)}
+                        >
+                          <Check className="w-3 h-3" /> אשר
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1 border-red-300 text-red-600 hover:bg-red-50"
+                          onClick={() => updateApprovalStatus(a.id, 'rejected', currentUser.name)}
+                        >
+                          <X className="w-3 h-3" /> דחה
+                        </Button>
+                      </div>
+                    )}
+                    {a.status !== 'pending' && a.approvedBy && (
+                      <span className="text-xs text-muted-foreground">ע"י {a.approvedBy}</span>
+                    )}
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
-    </div>
+    </Card>
   );
 }

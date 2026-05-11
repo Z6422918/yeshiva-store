@@ -1,196 +1,197 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStore } from '../../../store/useStore';
-import { ArrowDownToLine, ChevronDown, ChevronUp, RefreshCw, Search } from 'lucide-react';
+import { Search, Banknote, CreditCard, ShieldCheck, Receipt, Database } from 'lucide-react';
 import { Card } from '../../ui/card';
 import { Badge } from '../../ui/badge';
-import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { cn } from '../../../lib/utils';
 import SpecialApprovals from './SpecialApprovals';
 
-// ─── Sub-tab type ──────────────────────────────────────────────────────────────
 type SubTab = 'list' | 'approvals' | 'nedarim';
 
-// ─── Summary stat card ─────────────────────────────────────────────────────────
-function StatCard({
-  icon,
-  label,
-  value,
-  sub,
-  colorClass,
-  borderClass,
-  bgClass,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  sub: string;
-  colorClass: string;
-  borderClass: string;
-  bgClass: string;
-}) {
+const subTabs = [
+  { value: 'list'      as SubTab, label: 'עסקאות',             icon: Receipt },
+  { value: 'approvals' as SubTab, label: 'אישורים',            icon: ShieldCheck },
+  { value: 'nedarim'   as SubTab, label: 'אשראי - נדרים פלוס', icon: Database },
+];
+
+const fmtDate = (iso: string) => new Date(iso).toLocaleString('he-IL');
+
+// ─── Row helper for stat cards ─────────────────────────────────────────────────
+function Row({ label, value, positive }: { label: string; value: number; positive?: boolean }) {
   return (
-    <div className={cn('rounded-2xl border-2 p-5 text-center shadow-soft', borderClass, bgClass)}>
-      <div className="text-3xl mb-2">{icon}</div>
-      <div className={cn('text-2xl font-black', colorClass)}>{value}</div>
-      <div className="text-sm font-bold text-foreground/80 mt-1">{label}</div>
-      <div className="text-xs text-muted-foreground mt-1">{sub}</div>
+    <div className="flex justify-between">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn('font-semibold', positive && 'text-green-600')}>₪{value.toFixed(2)}</span>
     </div>
   );
 }
 
-// ─── Transfer action card ──────────────────────────────────────────────────────
-function TransferCard({
-  label,
-  pending,
-  colorClass,
-  bgClass,
-  borderClass,
-  onTransfer,
-}: {
-  label: string;
-  pending: number;
-  colorClass: string;
-  bgClass: string;
-  borderClass: string;
-  onTransfer: () => void;
-}) {
-  return (
-    <div className={cn('rounded-2xl border-2 p-5 flex items-center justify-between shadow-soft', borderClass, bgClass)}>
-      <Button
-        onClick={onTransfer}
-        disabled={pending <= 0}
-        className={cn('gap-2 font-bold', colorClass)}
-        variant="outline"
-      >
-        <ArrowDownToLine size={14} />
-        העבר לכספת
-      </Button>
-      <div className="text-right">
-        <p className={cn('text-lg font-black', colorClass)}>₪{pending.toFixed(2)}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">ממתין — {label}</p>
-      </div>
-    </div>
-  );
-}
+// ─── Main Page ─────────────────────────────────────────────────────────────────
+export default function IsakaotPage() {
+  const { transactions, transferToSafe, getCashNotTransferred, getCreditNotTransferred, safeEntries } = useStore();
+  const [active, setActive] = useState<SubTab>('list');
+  const [query, setQuery]   = useState('');
+  const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc'>('date_desc');
 
-// ─── Transaction list ──────────────────────────────────────────────────────────
-function TransactionsList() {
-  const transactions = useStore(s => s.transactions);
-  const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const cashNotTransferred   = getCashNotTransferred();
+  const creditNotTransferred = getCreditNotTransferred();
 
-  const sorted = [...transactions]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .filter(t => {
-      if (!search.trim()) return true;
-      const q = search.toLowerCase();
-      return (
-        t.cashierName.toLowerCase().includes(q) ||
-        t.totalAmount.toString().includes(q) ||
-        t.items.some(i => i.productName.toLowerCase().includes(q))
-      );
+  const totalCash   = useMemo(() => transactions.filter(t => t.paymentMethod === 'cash').reduce((s, t) => s + t.totalAmount, 0), [transactions]);
+  const totalCredit = useMemo(() => transactions.filter(t => t.paymentMethod === 'credit').reduce((s, t) => s + t.totalAmount, 0), [transactions]);
+
+  const cashToSafe   = safeEntries.filter(e => e.source === 'cash'   && e.type === 'income').reduce((s, e) => s + e.amount, 0);
+  const creditToSafe = safeEntries.filter(e => e.source === 'credit' && e.type === 'income').reduce((s, e) => s + e.amount, 0);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let arr = transactions.filter(t => {
+      if (!q) return true;
+      if (String(t.totalAmount).includes(q)) return true;
+      if (t.cashierName.toLowerCase().includes(q)) return true;
+      return t.items.some(it => it.productName.toLowerCase().includes(q));
     });
-
-  if (sorted.length === 0 && !search) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        <div className="text-4xl mb-3">📋</div>
-        <p className="text-sm font-semibold">אין עסקאות עדיין</p>
-      </div>
-    );
-  }
+    arr = [...arr].sort((a, b) => {
+      switch (sortBy) {
+        case 'date_asc':    return a.date.localeCompare(b.date);
+        case 'amount_desc': return b.totalAmount - a.totalAmount;
+        case 'amount_asc':  return a.totalAmount - b.totalAmount;
+        default:            return b.date.localeCompare(a.date);
+      }
+    });
+    return arr;
+  }, [transactions, query, sortBy]);
 
   return (
-    <div className="space-y-3">
-      <div className="relative">
-        <Search size={14} className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <Input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="חיפוש עסקאות..."
-          className="pr-9 text-sm"
-        />
+    <div className="space-y-4" dir="rtl">
+
+      {/* ── Two summary cards ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Card className="p-4 border-primary/30">
+          <div className="flex items-center gap-2 mb-2">
+            <CreditCard className="w-4 h-4 text-primary" />
+            <h4 className="font-semibold">אשראי</h4>
+          </div>
+          <div className="space-y-1 text-sm">
+            <Row label="סך עסקאות"      value={totalCredit} />
+            <Row label="הכנסות לכספת"   value={creditToSafe} positive />
+            <div className="pt-2 border-t flex justify-between font-bold">
+              <span>מאזן</span>
+              <span className={cn(creditNotTransferred >= 0 ? 'text-yellow-600' : 'text-green-600')}>
+                ₪{creditNotTransferred.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 border-green-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Banknote className="w-4 h-4 text-green-600" />
+            <h4 className="font-semibold">מזומן</h4>
+          </div>
+          <div className="space-y-1 text-sm">
+            <Row label="סך עסקאות"      value={totalCash} />
+            <Row label="הכנסות לכספת"   value={cashToSafe} positive />
+            <div className="pt-2 border-t flex justify-between font-bold">
+              <span>מאזן</span>
+              <span className={cn(cashNotTransferred >= 0 ? 'text-yellow-600' : 'text-green-600')}>
+                ₪{cashNotTransferred.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </Card>
       </div>
 
-      {sorted.length === 0 && (
-        <p className="text-center text-muted-foreground text-sm py-6">לא נמצאו תוצאות</p>
+      {/* ── Sub-tab bar ── */}
+      <div className="grid grid-cols-3 gap-1 bg-muted p-1 rounded-lg">
+        {subTabs.map(t => (
+          <button
+            key={t.value}
+            onClick={() => setActive(t.value)}
+            className={cn(
+              'inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium',
+              active === t.value
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <t.icon className="w-4 h-4" /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── List tab ── */}
+      {active === 'list' && (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-64">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="חיפוש לפי שם, מוצר, סכום..."
+                className="pr-10"
+              />
+            </div>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as typeof sortBy)}
+              className="h-10 rounded-md border bg-background px-3 text-sm"
+            >
+              <option value="date_desc">תאריך - חדש לישן</option>
+              <option value="date_asc">תאריך - ישן לחדש</option>
+              <option value="amount_desc">סכום - גבוה לנמוך</option>
+              <option value="amount_asc">סכום - נמוך לגבוה</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            {filtered.length === 0 && (
+              <Card className="p-8 text-center text-muted-foreground">אין עסקאות</Card>
+            )}
+            {filtered.map(tx => (
+              <Card key={tx.id} className="p-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium">{fmtDate(tx.date)}</span>
+                    <Badge variant="secondary" className="gap-1">
+                      {tx.paymentMethod === 'cash'   && <><Banknote   className="w-3 h-3" />מזומן</>}
+                      {tx.paymentMethod === 'credit' && <><CreditCard className="w-3 h-3" />אשראי</>}
+                    </Badge>
+                    <Badge variant="outline">
+                      {tx.buyerType === 'yeshiva' ? 'בן ישיבה' : 'מבחוץ'}
+                    </Badge>
+                    {tx.transferredToSafe && (
+                      <Badge variant="outline" className="text-muted-foreground">הועבר לכספת</Badge>
+                    )}
+                  </div>
+                  <div className="text-lg font-bold text-primary">₪{tx.totalAmount.toFixed(2)}</div>
+                </div>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  {tx.items.map((it, i) => (
+                    <span key={i} className="ml-2">
+                      {it.productName}
+                      {it.variantDescription && ` (${it.variantDescription})`}
+                      {' ×'}{it.quantity}
+                    </span>
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
 
-      {sorted.map(tx => (
-        <div
-          key={tx.id}
-          className="rounded-xl border border-border overflow-hidden shadow-soft"
-        >
-          {/* Header row */}
-          <button
-            onClick={() => setExpanded(expanded === tx.id ? null : tx.id)}
-            className="w-full flex items-center justify-between px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-smooth text-right"
-          >
-            <div className="flex items-center gap-2">
-              {expanded === tx.id
-                ? <ChevronUp size={15} className="text-muted-foreground" />
-                : <ChevronDown size={15} className="text-muted-foreground" />
-              }
-              <Badge
-                className={cn(
-                  'text-xs border-0',
-                  tx.paymentMethod === 'cash'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-blue-100 text-blue-700'
-                )}
-              >
-                {tx.paymentMethod === 'cash' ? '💵 מזומן' : '💳 אשראי'}
-              </Badge>
-              {tx.transferredToSafe && (
-                <Badge className="text-xs border-0 bg-muted text-muted-foreground">
-                  הועבר לכספת
-                </Badge>
-              )}
-              <Badge className="text-xs border-0 bg-secondary/50 text-secondary-foreground">
-                {tx.buyerType === 'yeshiva' ? 'בן ישיבה' : 'חיצוני'}
-              </Badge>
-            </div>
-            <div className="text-right">
-              <p className="font-black text-primary">₪{tx.totalAmount.toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {new Date(tx.date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                {' · '}
-                {tx.cashierName}
-              </p>
-            </div>
-          </button>
+      {/* ── Approvals tab ── */}
+      {active === 'approvals' && <SpecialApprovals />}
 
-          {/* Expanded items */}
-          {expanded === tx.id && (
-            <div className="px-4 py-3 bg-card border-t border-border/50 space-y-1.5">
-              {tx.items.map(item => (
-                <div key={item.variantId} className="flex justify-between text-sm items-center">
-                  <span className="font-bold text-primary">₪{item.totalPrice.toFixed(2)}</span>
-                  <span className="text-foreground">
-                    {item.productName}
-                    {item.variantDescription && (
-                      <span className="text-muted-foreground"> ({item.variantDescription})</span>
-                    )}
-                    {' × '}
-                    <span className="font-semibold">{item.quantity}</span>
-                  </span>
-                </div>
-              ))}
-              {tx.nedarimReference && (
-                <p className="text-xs text-muted-foreground pt-1 border-t border-border/30 mt-2">
-                  אסמכתא נדרים: {tx.nedarimReference}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      ))}
+      {/* ── Nedarim tab ── */}
+      {active === 'nedarim' && <NedarimTab />}
     </div>
   );
 }
 
-// ─── Nedarim tab ───────────────────────────────────────────────────────────────
+// ─── Nedarim placeholder ───────────────────────────────────────────────────────
 function NedarimTab() {
   const settings = useStore(s => s.settings);
   return (
@@ -210,7 +211,7 @@ function NedarimTab() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 gradient-primary text-primary-foreground text-sm font-bold px-5 py-2.5 rounded-xl hover:opacity-90 transition-smooth shadow-soft"
           >
-            <RefreshCw size={14} />
+            <Database className="w-4 h-4" />
             פתח דוחות נדרים פלוס
           </a>
         ) : (
@@ -219,123 +220,6 @@ function NedarimTab() {
           </p>
         )}
       </div>
-    </div>
-  );
-}
-
-// ─── Main Page ─────────────────────────────────────────────────────────────────
-export default function IsakaotPage() {
-  const { transactions, transferToSafe, getCashNotTransferred, getCreditNotTransferred } = useStore();
-  const [subTab, setSubTab] = useState<SubTab>('list');
-
-  const cashPending   = getCashNotTransferred();
-  const creditPending = getCreditNotTransferred();
-
-  const cashTransferred   = transactions.filter(t => t.paymentMethod === 'cash'   && t.transferredToSafe).reduce((s, t) => s + t.totalAmount, 0);
-  const creditTransferred = transactions.filter(t => t.paymentMethod === 'credit' && t.transferredToSafe).reduce((s, t) => s + t.totalAmount, 0);
-
-  const handleTransfer = (source: 'cash' | 'credit') => {
-    const pending = source === 'cash' ? cashPending : creditPending;
-    if (pending <= 0) return;
-    const ids = transactions.filter(t => t.paymentMethod === source && !t.transferredToSafe).map(t => t.id);
-    transferToSafe(source, ids, pending);
-  };
-
-  const subTabs: { id: SubTab; label: string }[] = [
-    { id: 'list',      label: '📋 רשימת עסקאות' },
-    { id: 'approvals', label: '✅ אישורים מיוחדים' },
-    { id: 'nedarim',   label: '🔄 נדרים פלוס' },
-  ];
-
-  return (
-    <div className="space-y-5" dir="rtl">
-
-      {/* ── 4 Summary cards ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          icon="💵"
-          label="קניות מזומן"
-          value={`₪${(cashPending + cashTransferred).toFixed(0)}`}
-          sub='סה"כ'
-          colorClass="text-green-700"
-          borderClass="border-green-200"
-          bgClass="bg-green-50"
-        />
-        <StatCard
-          icon="🏦"
-          label="הועבר לכספת"
-          value={`₪${cashTransferred.toFixed(0)}`}
-          sub="מזומן"
-          colorClass="text-primary"
-          borderClass="border-primary/30"
-          bgClass="bg-primary/5"
-        />
-        <StatCard
-          icon="💳"
-          label="קניות אשראי"
-          value={`₪${(creditPending + creditTransferred).toFixed(0)}`}
-          sub='סה"כ'
-          colorClass="text-blue-700"
-          borderClass="border-blue-200"
-          bgClass="bg-blue-50"
-        />
-        <StatCard
-          icon="📥"
-          label="נמשך לכספת"
-          value={`₪${creditTransferred.toFixed(0)}`}
-          sub="אשראי"
-          colorClass="text-purple-700"
-          borderClass="border-purple-200"
-          bgClass="bg-purple-50"
-        />
-      </div>
-
-      {/* ── Transfer actions ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <TransferCard
-          label="מזומן"
-          pending={cashPending}
-          colorClass="text-green-700 border-green-300 hover:bg-green-50"
-          bgClass="bg-green-50/50"
-          borderClass="border-green-200"
-          onTransfer={() => handleTransfer('cash')}
-        />
-        <TransferCard
-          label="אשראי"
-          pending={creditPending}
-          colorClass="text-blue-700 border-blue-300 hover:bg-blue-50"
-          bgClass="bg-blue-50/50"
-          borderClass="border-blue-200"
-          onTransfer={() => handleTransfer('credit')}
-        />
-      </div>
-
-      {/* ── Main card with sub-tabs ── */}
-      <Card className="shadow-soft overflow-hidden">
-        {/* Tab bar */}
-        <div className="flex gap-2 p-4 border-b border-border">
-          {subTabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setSubTab(t.id)}
-              className={cn(
-                'text-xs font-bold px-4 py-2 rounded-xl transition-smooth',
-                subTab === t.id
-                  ? 'gradient-primary text-primary-foreground shadow-soft'
-                  : 'bg-muted text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="p-5">
-          {subTab === 'list'      && <TransactionsList />}
-          {subTab === 'approvals' && <SpecialApprovals />}
-          {subTab === 'nedarim'   && <NedarimTab />}
-        </div>
-      </Card>
     </div>
   );
 }
