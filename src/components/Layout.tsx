@@ -1,108 +1,132 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { ShoppingCart, Settings, LogOut } from 'lucide-react';
+import { ShoppingCart, Settings, Store } from 'lucide-react';
 import KupaPage from './kupa/KupaPage';
 import NihulPage from './nihul/NihulPage';
+import { cn } from '../lib/utils';
+import { formatTime, formatHebrew, formatWeekday, formatParasha, formatGregorian } from '../lib/hebrewDate';
 
-function LiveClock() {
+// ── Hebrew clock component (matches Lovable's HeaderClock exactly) ──
+function HeaderClock() {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  const time = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const weekday = now.toLocaleDateString('he-IL', { weekday: 'long' });
-  const dateStr = now.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const fmtGregNumeric = (d: Date) =>
+    `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+
+  const fmtGregMonthName = (d: Date) => {
+    const months = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+    return months[d.getMonth()];
+  };
 
   return (
-    <div className="text-center select-none">
-      <div className="text-3xl font-black tracking-widest text-gray-800" style={{ fontVariantNumeric: 'tabular-nums' }}>
-        {time}
+    <div className="flex items-center justify-center gap-3 w-full" dir="rtl">
+      {/* Right: weekday + parasha */}
+      <div className="flex flex-col items-end text-right leading-tight">
+        <span className="text-sm font-bold text-foreground">{formatWeekday(now)}</span>
+        <span className="text-xs font-semibold" style={{ color: 'hsl(var(--accent))' }}>{formatParasha(now)}</span>
       </div>
-      <div className="text-xs font-medium mt-0.5" style={{ color: '#c8890a' }}>
-        {weekday} {dateStr}
+      {/* Center: big clock with gradient text */}
+      <span
+        className="font-mono font-bold tabular-nums text-3xl md:text-4xl tracking-tight px-2"
+        style={{
+          background: 'linear-gradient(to bottom, hsl(var(--primary)), hsl(var(--accent)))',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+        }}
+      >
+        {formatTime(now)}
+      </span>
+      {/* Left: Hebrew date + Gregorian */}
+      <div className="flex flex-col items-start text-left leading-tight">
+        <span className="text-sm font-bold" style={{ color: 'hsl(var(--accent))' }}>{formatHebrew(now)}</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          <span dir="ltr">{fmtGregNumeric(now)}</span> · {fmtGregMonthName(now)}
+        </span>
       </div>
     </div>
   );
 }
 
+const tabs = [
+  { value: "kupa", label: "קופה", icon: ShoppingCart },
+  { value: "nihul", label: "ניהול", icon: Settings },
+] as const;
+
+type TabValue = "kupa" | "nihul";
+
 export default function Layout() {
   const currentUser = useStore(s => s.currentUser);
-  const logout = useStore(s => s.logout);
   const storeName = useStore(s => s.settings.storeName);
-  const [activeTab, setActiveTab] = useState<'kupa' | 'nihul'>('kupa');
+  const [activeTab, setActiveTab] = useState<TabValue>("kupa");
 
-  const canSeeNihul = currentUser?.role === 'manager' || currentUser?.role === 'admin';
+  const canManage = currentUser?.role === 'manager' || currentUser?.role === 'admin';
+  const roleLabel = currentUser?.role === 'admin' ? 'מנהל ראשי' : currentUser?.role === 'manager' ? 'מנהל' : 'קופה';
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f4f6fb]" dir="rtl">
+    <div className="h-screen flex flex-col overflow-hidden" dir="rtl">
 
       {/* ── Header ── */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="w-full px-6 py-3 flex items-center justify-between">
+      <header className="border-b bg-card/80 backdrop-blur-sm shadow-soft shrink-0 z-40">
+        <div className="container py-3 flex items-center gap-4">
 
           {/* Right: logo + store name */}
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm" style={{ background: '#1e3166' }}>
-              <span className="text-white font-black text-lg">ח</span>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-11 h-11 rounded-xl gradient-primary flex items-center justify-center shadow-soft">
+              <Store className="w-6 h-6 text-primary-foreground" />
             </div>
-            <div className="text-right">
-              <div className="font-black text-lg text-gray-900 leading-tight">{storeName}</div>
-              <div className="text-xs text-gray-400 font-medium">{currentUser?.name} · {currentUser?.role === 'admin' ? 'מנהל ראשי' : currentUser?.role === 'manager' ? 'מנהל' : 'קופה'}</div>
+            <div>
+              <h1 className="text-xl font-bold leading-tight">{storeName}</h1>
+              <p className="text-xs text-muted-foreground">
+                {roleLabel} • {currentUser?.name}
+              </p>
             </div>
           </div>
 
-          {/* Center: clock */}
-          <LiveClock />
+          {/* Center: Hebrew clock */}
+          <div className="flex-1 min-w-0">
+            <HeaderClock />
+          </div>
 
-          {/* Left: logout */}
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-400 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150"
-          >
-            התנתק
-            <LogOut size={15} />
-          </button>
         </div>
       </header>
 
-      {/* ── Tab Bar ── */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="flex justify-center py-2.5">
-          <div className="flex gap-1 bg-gray-100 rounded-2xl p-1">
-            <button
-              onClick={() => setActiveTab('kupa')}
-              className={`flex items-center gap-2 px-10 py-2 rounded-xl font-bold text-sm transition-all duration-200 ${
-                activeTab === 'kupa'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              <ShoppingCart size={15} />
-              קופה
-            </button>
-            {canSeeNihul && (
-              <button
-                onClick={() => setActiveTab('nihul')}
-                className={`flex items-center gap-2 px-10 py-2 rounded-xl font-bold text-sm transition-all duration-200 ${
-                  activeTab === 'nihul'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                <Settings size={15} />
-                ניהול
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* ── Main content ── */}
+      <main className="container py-4 flex-1 min-h-0 flex flex-col overflow-hidden">
 
-      {/* ── Content ── */}
-      <main className="flex-1 overflow-hidden flex flex-col">
-        {activeTab === 'kupa' && <KupaPage />}
-        {activeTab === 'nihul' && canSeeNihul && <div className="flex-1 overflow-hidden flex"><NihulPage /></div>}
+        {/* Tab bar — only for managers/admins */}
+        {canManage && (
+          <div className="grid w-full mx-auto mb-4 h-11 rounded-lg bg-muted p-1 grid-cols-2 max-w-md shrink-0">
+            {tabs.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setActiveTab(tab.value)}
+                className={cn(
+                  "inline-flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+                  activeTab === tab.value
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <tab.icon className="w-4 h-4" /> {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* All tabs always rendered, hidden via CSS to preserve state */}
+        <div className={cn("flex-1 min-h-0", activeTab === "kupa" ? "flex flex-col" : "hidden")}>
+          <KupaPage />
+        </div>
+        {canManage && (
+          <div className={cn("flex-1 min-h-0 overflow-hidden flex", activeTab === "nihul" ? "" : "hidden")}>
+            <NihulPage />
+          </div>
+        )}
       </main>
     </div>
   );

@@ -1,14 +1,30 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useStore } from '../../store/useStore';
-import { ScanLine, AlignJustify, Trash2, Plus, Minus, Clock, ChevronDown } from 'lucide-react';
-import type { CartItem } from '../../types';
-import ProductListModal from './ProductListModal';
-import PaymentModal from './PaymentModal';
-import TransactionSummary from './TransactionSummary';
-import type { Transaction } from '../../types';
+import {
+  ScanLine, Trash2, Plus, Minus, List, UserCheck, Users, History,
+  Banknote, CreditCard, ShieldCheck, ArrowRight, CheckCircle2,
+  Folder, Search, KeyRound,
+} from 'lucide-react';
+import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '../ui/dialog';
+import { cn } from '../../lib/utils';
+import type { Product, ProductVariant } from '../../types';
 
-const NAVY = '#1e3166';
-const GOLD = '#d4a017';
+type CustomerType = 'yeshiva' | 'external';
+
+const variantLabel = (desc: string) => desc || 'רגיל';
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleString('he-IL', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
 
 export default function KupaPage() {
   const {
@@ -17,394 +33,637 @@ export default function KupaPage() {
     products, completeTransaction, transactions,
   } = useStore();
 
+  const [customer, setCustomer] = useState<CustomerType | null>(null);
   const [barcodeInput, setBarcodeInput] = useState('');
-  const [showProductList, setShowProductList] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
-  const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null);
+  const [payMethod, setPayMethod] = useState<'cash' | 'credit' | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const [browseQuery, setBrowseQuery] = useState('');
+  const [browseCategory, setBrowseCategory] = useState<string | null>(null);
+  const [browseProductId, setBrowseProductId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const total = cart.reduce((s, i) => s + i.totalPrice, 0);
-  const totalQty = cart.reduce((s, i) => s + i.quantity, 0);
-  const recentTx = [...(transactions || [])].reverse().slice(0, 20);
+  const UNCATEGORIZED = 'ללא קטגוריה';
 
-  const handleBarcode = (e: React.FormEvent) => {
-    e.preventDefault();
-    const code = barcodeInput.trim();
+  // Price helper
+  const priceFor = (v: ProductVariant, cust: CustomerType) =>
+    cust === 'yeshiva' ? v.yeshivaPrice : v.externalPrice;
+
+  // Total
+  const total = customer
+    ? cart.reduce((s, it) => {
+        const p = products.find(x => x.id === it.productId);
+        const v = p?.variants.find(x => x.id === it.variantId);
+        return s + (v ? priceFor(v, customer) : it.unitPrice) * it.quantity;
+      }, 0)
+    : 0;
+
+  // Categories & products
+  const categoryMap = new Map<string, Product[]>();
+  for (const p of products.filter(x => x.isActive)) {
+    const cat = (p.category && p.category.trim()) || UNCATEGORIZED;
+    categoryMap.set(cat, [...(categoryMap.get(cat) ?? []), p]);
+  }
+  const categoryNames = Array.from(categoryMap.keys()).sort((a, b) => a.localeCompare(b, 'he'));
+
+  const selectedBrowseProduct = browseProductId
+    ? products.find(p => p.id === browseProductId) || null
+    : null;
+
+  // Browse filtering
+  const matchQuery = (p: Product, q: string) => {
+    if (!q) return true;
+    const fields = [p.barcode, p.name, p.company, p.category ?? ''];
+    return fields.some(f => f.toLowerCase().includes(q));
+  };
+
+  const filteredCategories = categoryNames.filter(c => {
+    const q = browseQuery.trim().toLowerCase();
+    if (!q) return (categoryMap.get(c) ?? []).length > 0;
+    if (c.toLowerCase().includes(q)) return true;
+    return (categoryMap.get(c) ?? []).some(p => matchQuery(p, q));
+  });
+
+  const productsInCategory = browseCategory
+    ? (categoryMap.get(browseCategory) ?? []).filter(p => matchQuery(p, browseQuery.trim().toLowerCase()))
+    : [];
+
+  const filteredVariants = selectedBrowseProduct?.variants ?? [];
+
+  // Add product to cart
+  const addVariant = (product: Product, variant: ProductVariant) => {
+    const cust = customer ?? 'yeshiva';
+    const price = priceFor(variant, cust);
+    const existing = cart.find(i => i.variantId === variant.id);
+    if (existing) {
+      updateCartItem(variant.id, existing.quantity + 1);
+    } else {
+      addToCart({
+        productId: product.id,
+        productName: product.name,
+        variantId: variant.id,
+        variantDescription: [variant.sizeType, variant.details1, variant.details2].filter(Boolean).join(' • '),
+        quantity: 1,
+        unitPrice: price,
+        totalPrice: price,
+      });
+    }
+  };
+
+  const scanTimer = useRef<number | null>(null);
+
+  const submitBarcode = (raw: string) => {
+    const code = raw.trim();
     if (!code) return;
-    const product = products.find(p => p.barcode === code && p.isActive);
-    if (!product) { alert('מוצר לא נמצא'); return; }
-    const v = product.variants[0];
-    if (!v) return;
-    const price = buyerType === 'yeshiva' ? v.yeshivaPrice : v.externalPrice;
-    addToCart({
-      productId: product.id,
-      productName: product.name,
-      variantId: v.id,
-      variantDescription: [v.sizeType, v.details1, v.details2].filter(Boolean).join(' • '),
-      quantity: 1,
-      unitPrice: price,
-      totalPrice: price,
-    });
+    const matches: { product: Product; variant: ProductVariant }[] = [];
+    for (const p of products.filter(x => x.isActive)) {
+      if (p.barcode === code) {
+        for (const v of p.variants) matches.push({ product: p, variant: v });
+      }
+    }
+    if (matches.length === 0) {
+      alert('מוצר לא נמצא במערכת');
+    } else {
+      addVariant(matches[0].product, matches[0].variant);
+    }
     setBarcodeInput('');
   };
 
-  const handlePaymentComplete = (method: 'cash' | 'credit', nedarimRef?: string) => {
-    const tx = completeTransaction(method, nedarimRef);
-    setLastTransaction(tx);
-    setShowPayment(false);
+  const handleScan = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitBarcode(barcodeInput);
   };
 
-  if (lastTransaction) return <TransactionSummary transaction={lastTransaction} onClose={() => setLastTransaction(null)} />;
+  const onBarcodeChange = (val: string) => {
+    setBarcodeInput(val);
+    if (scanTimer.current) window.clearTimeout(scanTimer.current);
+    if (val.trim().length >= 6) {
+      scanTimer.current = window.setTimeout(() => submitBarcode(val), 120);
+    }
+  };
+
+  const handleSetCustomer = (type: CustomerType) => {
+    setCustomer(type);
+    setBuyerType(type === 'yeshiva' ? 'yeshiva' : 'external');
+  };
+
+  const resetSale = () => {
+    clearCart();
+    setCustomer(null);
+    setShowPayment(false);
+    setPayMethod(null);
+    setConfirming(false);
+  };
+
+  const goBackPayment = () => {
+    if (confirming) { setConfirming(false); setPayMethod(null); return; }
+    setShowPayment(false); setPayMethod(null);
+  };
+
+  const handleCashConfirm = () => {
+    completeTransaction('cash');
+    resetSale();
+  };
+
+  const handleCreditConfirm = () => {
+    completeTransaction('credit');
+    resetSale();
+  };
+
+  const closeBrowse = () => {
+    setBrowseOpen(false);
+    setBrowseCategory(null);
+    setBrowseProductId(null);
+    setBrowseQuery('');
+  };
+
+  const recentTx = [...(transactions || [])].reverse().slice(0, 20);
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 108px)', direction: 'rtl', background: '#f0f2f8' }}>
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4 flex-1 min-h-0 h-full">
 
-      {/* ══════════════════════════════
-          RIGHT: main content area
-      ══════════════════════════════ */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* ═══════════════════════════════════
+          LEFT COLUMN: controls + cart
+      ═══════════════════════════════════ */}
+      <div className="flex flex-col gap-3 min-h-0">
 
-        {/* ── Controls card ── */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #eaecf5', boxShadow: '0 1px 8px rgba(26,35,126,0.06)' }}>
-
-          {/* Row 1: buyer type buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 16px 10px', flexWrap: 'wrap' }}>
-
-            {/* Active buyer badge */}
-            <button
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '7px 16px', borderRadius: 10,
-                background: NAVY, color: '#fff',
-                border: 'none', fontSize: 13, fontWeight: 800,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >
-              {buyerType === 'yeshiva' ? '💙' : '🌐'}
-              {buyerType === 'yeshiva' ? 'בן ישיבה' : 'קונה מבחוץ'}
-            </button>
-
-            {/* Switch type */}
-            <button
-              onClick={() => setBuyerType(buyerType === 'yeshiva' ? 'external' : 'yeshiva')}
-              style={{
-                padding: '7px 16px', borderRadius: 10,
-                background: '#f4f6fb', color: '#555',
-                border: '1.5px solid #e0e4f0', fontSize: 13, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >
-              שנה סוג קונה
-            </button>
-
-            {/* Cart type indicator */}
-            <button
-              style={{
-                padding: '7px 16px', borderRadius: 10,
-                background: '#f4f6fb', color: '#888',
-                border: '1.5px solid #e0e4f0', fontSize: 13, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >
-              מוצר קניה ✕
-            </button>
-
-            {/* Clear cart */}
-            <button
-              onClick={() => cart.length > 0 && window.confirm('לאפס את הקניה?') && clearCart()}
-              style={{
-                padding: '7px 16px', borderRadius: 10,
-                background: '#f4f6fb', color: '#888',
-                border: '1.5px solid #e0e4f0', fontSize: 13, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >
-              איפוס קניה
-            </button>
-          </div>
-
-          {/* Row 2: barcode */}
-          <div style={{ display: 'flex', gap: 8, padding: '0 16px 14px' }}>
-            <button
-              onClick={() => setShowProductList(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '9px 16px', borderRadius: 10,
-                background: '#f4f6fb', color: '#555',
-                border: '1.5px solid #e0e4f0', fontSize: 13, fontWeight: 700,
-                cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
-              }}
-            >
-              <AlignJustify size={14} />
-              בחר מהרשימה
-            </button>
-            <form onSubmit={handleBarcode} style={{ flex: 1, position: 'relative' }}>
-              <input
-                type="text"
-                placeholder="סרוק ברקוד – נוסף אוטומטית"
-                value={barcodeInput}
-                onChange={e => setBarcodeInput(e.target.value)}
-                autoFocus
-                style={{
-                  width: '100%', boxSizing: 'border-box',
-                  padding: '9px 16px 9px 40px',
-                  borderRadius: 10, border: '1.5px solid #e0e4f0',
-                  background: '#fafbff', fontSize: 13, fontFamily: 'inherit',
-                  color: '#333', textAlign: 'right', outline: 'none',
-                }}
-              />
-              <button
-                type="submit"
-                style={{
-                  position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-                  background: 'none', border: 'none', cursor: 'pointer', color: '#aaa',
-                  display: 'flex', alignItems: 'center',
-                }}
-              >
-                <ScanLine size={17} />
-              </button>
-            </form>
-          </div>
-        </div>
-
-        {/* ── Cart card ── */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #eaecf5', boxShadow: '0 1px 8px rgba(26,35,126,0.06)', flex: 1 }}>
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: '1px solid #f4f6fb' }}>
-            <span style={{ fontSize: 11, color: '#9fa8da', fontWeight: 600 }}>
-              {buyerType === 'yeshiva' ? '💙 מחיר בני ישיבה' : '🌐 מחיר חיצוני'}
-            </span>
-            <span style={{ fontSize: 14, fontWeight: 900, color: '#1a1a2e' }}>
-              פריטים בקניה ({cart.length})
-            </span>
-          </div>
-
-          {/* Items */}
-          {cart.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: 12 }}>
-              {/* Scan corners */}
-              <div style={{ position: 'relative', width: 56, height: 56 }}>
-                <div style={{ position: 'absolute', top: 0, right: 0, width: 16, height: 16, borderTop: '2.5px solid #d5d9ef', borderRight: '2.5px solid #d5d9ef', borderRadius: '0 4px 0 0' }} />
-                <div style={{ position: 'absolute', top: 0, left: 0, width: 16, height: 16, borderTop: '2.5px solid #d5d9ef', borderLeft: '2.5px solid #d5d9ef', borderRadius: '4px 0 0 0' }} />
-                <div style={{ position: 'absolute', bottom: 0, right: 0, width: 16, height: 16, borderBottom: '2.5px solid #d5d9ef', borderRight: '2.5px solid #d5d9ef', borderRadius: '0 0 4px 0' }} />
-                <div style={{ position: 'absolute', bottom: 0, left: 0, width: 16, height: 16, borderBottom: '2.5px solid #d5d9ef', borderLeft: '2.5px solid #d5d9ef', borderRadius: '0 0 0 4px' }} />
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d5d9ef' }}>
-                  <ScanLine size={18} />
+        {/* ── Controls Card ── */}
+        <Card className="p-5 shadow-soft shrink-0">
+          {/* Row 1: buyer type */}
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              {customer ? (
+                <>
+                  <Badge variant={customer === 'yeshiva' ? 'default' : 'secondary'} className="text-sm py-1 px-3">
+                    {customer === 'yeshiva' ? '🏠 בן ישיבה' : '🌍 קונה מבחוץ'}
+                  </Badge>
+                  <Button variant="outline" size="sm" onClick={() =>
+                    handleSetCustomer(customer === 'yeshiva' ? 'external' : 'yeshiva')
+                  }>
+                    שנה סוג קונה
+                  </Button>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-muted-foreground">בחר סוג קונה:</span>
+                  <Button size="sm" variant="default" onClick={() => handleSetCustomer('yeshiva')} className="gap-1.5">
+                    <UserCheck className="w-4 h-4" /> בן ישיבה
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => handleSetCustomer('external')} className="gap-1.5">
+                    <Users className="w-4 h-4" /> קונה מבחוץ
+                  </Button>
                 </div>
-              </div>
-              <p style={{ fontSize: 13, color: '#9fa8da', fontWeight: 700 }}>סרוק מוצר כדי להתחיל</p>
+              )}
+            </div>
+            {cart.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={resetSale}>איפוס קנייה</Button>
+            )}
+          </div>
+
+          {/* Row 2: barcode + browse */}
+          <form onSubmit={handleScan} className="flex gap-2">
+            <div className="relative flex-1">
+              <ScanLine className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary" />
+              <Input
+                ref={inputRef}
+                value={barcodeInput}
+                onChange={e => onBarcodeChange(e.target.value)}
+                placeholder="סרוק ברקוד — נוסף אוטומטית"
+                className="pr-11 h-12 text-lg font-mono"
+                autoFocus
+              />
+            </div>
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              onClick={() => { setBrowseOpen(true); setBrowseCategory(null); setBrowseProductId(null); }}
+              className="gap-2"
+            >
+              <List className="w-4 h-4" /> בחר מהרשימה
+            </Button>
+          </form>
+        </Card>
+
+        {/* ── Cart Card ── */}
+        <Card className="shadow-soft overflow-hidden flex flex-col flex-1 min-h-0">
+          <div className="p-4 border-b bg-secondary/40 shrink-0">
+            <h3 className="font-semibold">פריטים בקנייה ({cart.length})</h3>
+          </div>
+
+          {cart.length === 0 ? (
+            <div className="p-12 text-center text-muted-foreground flex-1 flex flex-col items-center justify-center">
+              <ScanLine className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              סרוק מוצר כדי להתחיל
             </div>
           ) : (
-            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {cart.map(item => (
-                <CartRow
-                  key={item.variantId}
-                  item={item}
-                  onQtyChange={q => updateCartItem(item.variantId, q)}
-                  onRemove={() => removeFromCart(item.variantId)}
-                />
-              ))}
+            <div className="divide-y overflow-y-auto flex-1 min-h-0">
+              {cart.map(it => {
+                const prod = products.find(p => p.id === it.productId);
+                const variant = prod?.variants.find(v => v.id === it.variantId);
+                const price = customer && variant ? priceFor(variant, customer) : it.unitPrice;
+                return (
+                  <div key={it.variantId} className="p-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{it.productName}</div>
+                      <div className="text-sm text-muted-foreground truncate">
+                        {[variantLabel(it.variantDescription), prod?.company].filter(Boolean).join(' • ')}
+                      </div>
+                      {customer && (
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          ₪{price.toFixed(2)} ליחידה
+                          {it.quantity > 1 && <> · סה״כ ₪{(price * it.quantity).toFixed(2)}</>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8"
+                        onClick={() => updateCartItem(it.variantId, Math.max(0, it.quantity - 1))}
+                      >
+                        <Minus className="w-3 h-3" />
+                      </Button>
+                      <span className="w-8 text-center font-semibold">{it.quantity}</span>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8"
+                        onClick={() => updateCartItem(it.variantId, it.quantity + 1)}
+                      >
+                        <Plus className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div className="w-20 text-left font-semibold">
+                      {customer ? `₪${(price * it.quantity).toFixed(2)}` : '—'}
+                    </div>
+                    <Button size="icon" variant="ghost" onClick={() => removeFromCart(it.variantId)}>
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
-      {/* ══════════════════════════════
-          LEFT: two stacked cards
-      ══════════════════════════════ */}
-      <div style={{ width: 256, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12, padding: 12 }}>
+      {/* ═══════════════════════════════════
+          RIGHT COLUMN: total + history
+      ═══════════════════════════════════ */}
+      <div className="flex flex-col gap-4 min-h-0">
 
-        {/* ── Card 1: Total ── */}
-        <div style={{
-          background: NAVY, borderRadius: 20, padding: '20px 16px',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
-          boxShadow: '0 4px 20px rgba(30,49,102,0.3)',
-        }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(197,202,233,0.7)', letterSpacing: 1, marginBottom: 8 }}>
-            סה״כ לתשלום
-          </p>
-          <p style={{ fontSize: 42, fontWeight: 900, color: '#fff', lineHeight: 1.1, marginBottom: 4 }}>
-            {cart.length === 0 ? <span style={{ opacity: 0.15, letterSpacing: 8 }}>—</span> : `₪${total.toFixed(2)}`}
-          </p>
-          <p style={{ fontSize: 12, color: 'rgba(197,202,233,0.55)', marginBottom: 16 }}>
-            {cart.length === 0 ? 'העגלה ריקה' : `${totalQty} פריטים`}
-          </p>
-          <button
-            onClick={() => cart.length > 0 && setShowPayment(true)}
-            disabled={cart.length === 0}
-            style={{
-              width: '100%', padding: '13px 0',
-              borderRadius: 12, border: 'none',
-              background: cart.length === 0 ? 'rgba(255,255,255,0.1)' : GOLD,
-              color: cart.length === 0 ? 'rgba(255,255,255,0.25)' : '#fff',
-              fontSize: 16, fontWeight: 900,
-              cursor: cart.length === 0 ? 'default' : 'pointer',
-              fontFamily: 'inherit',
-              boxShadow: cart.length > 0 ? '0 4px 16px rgba(212,160,23,0.4)' : 'none',
-              transition: 'all .15s',
-            }}
+        {/* ── Total Card (gradient) ── */}
+        <Card className="p-6 shadow-elegant gradient-primary text-primary-foreground shrink-0">
+          <div className="text-sm opacity-80">סה"כ לתשלום</div>
+          <div className="text-5xl font-extrabold my-2">
+            {customer ? `₪${total.toFixed(2)}` : '— — —'}
+          </div>
+          <div className="text-sm opacity-70 mb-6">
+            {customer ? `${cart.length} פריטים` : 'בחר סוג קונה כדי לראות מחיר'}
+          </div>
+          <Button
+            size="lg"
+            disabled={cart.length === 0 || !customer}
+            onClick={() => setShowPayment(true)}
+            className="w-full h-14 text-lg gradient-accent text-accent-foreground hover:opacity-90 border-0"
           >
-            לתשלום
-          </button>
-        </div>
+            {customer ? 'לתשלום' : 'בחר סוג קונה'}
+          </Button>
+        </Card>
 
-        {/* ── Card 2: Transaction history ── */}
-        <div style={{
-          background: '#fff', borderRadius: 20, flex: 1,
-          border: '1px solid #eaecf5', boxShadow: '0 1px 8px rgba(26,35,126,0.06)',
-          display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        }}>
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #f4f6fb' }}>
-            <Clock size={14} color="#c5cae9" />
-            <span style={{ fontSize: 13, fontWeight: 800, color: '#1a1a2e' }}>היסטוריית עסקאות</span>
+        {/* ── History Card ── */}
+        <Card className="shadow-soft overflow-hidden flex flex-col flex-1 min-h-0">
+          <div className="w-full flex items-center gap-2 px-4 py-3 bg-secondary/40 border-b shrink-0">
+            <History className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold">היסטוריית עסקאות</h3>
           </div>
-
-          {/* History list */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="overflow-y-auto p-4 flex-1 min-h-0">
             {recentTx.length === 0 ? (
-              <p style={{ textAlign: 'center', color: '#c5cae9', fontSize: 12, padding: '24px 0' }}>אין עסקאות עדיין</p>
-            ) : recentTx.map(tx => {
-              const isCash = tx.paymentMethod === 'cash';
-              const isSpecial = false; // future: special approvals
-              return (
-                <div
-                  key={tx.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '9px 10px', borderRadius: 12,
-                    border: '1px solid #f0f2fa', cursor: 'pointer',
-                    transition: 'background .15s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#fafbff')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  {/* ▼ expand — far RIGHT in RTL */}
-                  <ChevronDown size={13} color="#d5d9ef" style={{ flexShrink: 0 }} />
-
-                  {/* Date — right side */}
-                  <span style={{ fontSize: 10, color: '#9fa8da', flexShrink: 0 }}>{tx.date}</span>
-
-                  {/* Badge — center, push to left */}
-                  <span style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-                    <span style={{
-                      fontSize: 10, fontWeight: 700,
-                      padding: '2px 8px', borderRadius: 20,
-                      background: isCash ? '#f4f6fb' : '#e3f2fd',
-                      color: isCash ? '#666' : '#1565c0',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {isCash ? '💳 מזומן' : '💳 אשראי'}
-                    </span>
-                  </span>
-
-                  {/* Amount — far LEFT in RTL */}
-                  <span style={{ fontSize: 14, fontWeight: 900, color: NAVY, flexShrink: 0 }}>
-                    ₪{tx.totalAmount.toFixed(2)}
-                  </span>
-                </div>
-              );
-            })}
+              <div className="text-center text-muted-foreground py-8 text-sm">אין עסקאות עדיין</div>
+            ) : (
+              <div className="space-y-2">
+                {recentTx.map(tx => (
+                  <CompactTxCard key={tx.id} tx={tx} />
+                ))}
+              </div>
+            )}
           </div>
-        </div>
+        </Card>
       </div>
 
-      {showProductList && (
-        <ProductListModal
-          buyerType={buyerType}
-          onSelect={(item: CartItem) => { addToCart(item); setShowProductList(false); }}
-          onClose={() => setShowProductList(false)}
-        />
-      )}
-      {showPayment && (
-        <PaymentModal total={total} onComplete={handlePaymentComplete} onClose={() => setShowPayment(false)} />
-      )}
+      {/* ═══════════════════════════════════
+          BROWSE DIALOG
+      ═══════════════════════════════════ */}
+      <Dialog open={browseOpen} onOpenChange={o => { if (!o) closeBrowse(); }}>
+        <DialogContent dir="rtl" className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {(browseCategory || selectedBrowseProduct) && (
+                <button
+                  className="inline-flex items-center justify-center rounded-lg h-10 w-10 hover:bg-muted"
+                  onClick={() => {
+                    if (selectedBrowseProduct) { setBrowseProductId(null); setBrowseQuery(''); }
+                    else { setBrowseCategory(null); setBrowseQuery(''); }
+                  }}
+                >
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
+              {selectedBrowseProduct
+                ? `בחר סוג — ${selectedBrowseProduct.name}`
+                : browseCategory
+                  ? `בחר מוצר — ${browseCategory}`
+                  : 'בחר מוצר'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="relative mb-4 shrink-0">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={browseQuery}
+              onChange={e => setBrowseQuery(e.target.value)}
+              placeholder="חיפוש לפי ברקוד, שם, ספק, חברה, סוג, מידה..."
+              className="pr-10"
+              autoFocus
+            />
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+
+            {/* Categories */}
+            {!browseCategory && !selectedBrowseProduct && (
+              <div className="rounded-xl border bg-card shadow-soft p-3 space-y-1">
+                {filteredCategories.length === 0 && (
+                  <div className="text-center text-muted-foreground py-10">אין תוצאות</div>
+                )}
+                {filteredCategories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => { setBrowseCategory(cat); setBrowseQuery(''); }}
+                    className="w-full flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-muted/40 transition-smooth text-right"
+                  >
+                    <Folder className="w-5 h-5 text-primary shrink-0" />
+                    <span className="font-semibold flex-1">{cat}</span>
+                    <Badge variant="outline" className="text-xs">{(categoryMap.get(cat) ?? []).length}</Badge>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Products in category */}
+            {browseCategory && !selectedBrowseProduct && (
+              <div className="rounded-xl border bg-card shadow-soft p-3 space-y-1">
+                {productsInCategory.length === 0 && (
+                  <div className="text-center text-muted-foreground py-10">אין מוצרים תואמים</div>
+                )}
+                {productsInCategory.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      if (p.variants.length === 1) { addVariant(p, p.variants[0]); closeBrowse(); }
+                      else { setBrowseProductId(p.id); setBrowseQuery(''); }
+                    }}
+                    className="w-full flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-muted/40 transition-smooth text-right"
+                  >
+                    <Folder className="w-5 h-5 text-accent shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold">{p.name}</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {[p.barcode, p.company].filter(Boolean).join(' • ')}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      {p.variants.length === 1 ? 'סוג יחיד' : `${p.variants.length} סוגים`}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Variants of selected product */}
+            {selectedBrowseProduct && (
+              <div className="rounded-xl border bg-card shadow-soft p-3 space-y-1">
+                {filteredVariants.length === 0 && (
+                  <div className="text-center text-muted-foreground py-10">אין סוגים תואמים</div>
+                )}
+                {filteredVariants.map(v => {
+                  const price = customer ? priceFor(v, customer) : v.yeshivaPrice;
+                  return (
+                    <button
+                      key={v.id}
+                      onClick={() => { addVariant(selectedBrowseProduct, v); closeBrowse(); }}
+                      className="w-full flex items-center gap-3 py-3 px-4 rounded-xl hover:bg-muted/40 transition-smooth text-right group"
+                    >
+                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <Plus className="w-3 h-3 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold group-hover:text-accent">{v.sizeType || 'רגיל'}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {[v.details1, v.details2].filter(Boolean).join(' • ')}
+                        </div>
+                      </div>
+                      <span className="text-lg font-extrabold text-primary shrink-0">₪{price.toFixed(2)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════
+          PAYMENT DIALOG
+      ═══════════════════════════════════ */}
+      <Dialog open={showPayment} onOpenChange={o => { if (!o) goBackPayment(); }}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle>תשלום</DialogTitle>
+          </DialogHeader>
+
+          {/* Step 1: choose method */}
+          {!confirming && (
+            <div className="space-y-4">
+              <div className="rounded-lg border p-3 bg-secondary/30">
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant={customer === 'yeshiva' ? 'default' : 'secondary'}>
+                    {customer === 'yeshiva' ? '🏠 בן ישיבה' : '🌍 קונה מבחוץ'}
+                  </Badge>
+                  <button
+                    className="text-sm text-muted-foreground hover:text-foreground"
+                    onClick={() => handleSetCustomer(customer === 'yeshiva' ? 'external' : 'yeshiva')}
+                  >
+                    שנה
+                  </button>
+                </div>
+                <div className="divide-y text-sm">
+                  {cart.map(it => {
+                    const prod = products.find(p => p.id === it.productId);
+                    const variant = prod?.variants.find(v => v.id === it.variantId);
+                    const price = customer && variant ? priceFor(variant, customer) : it.unitPrice;
+                    return (
+                      <div key={it.variantId} className="flex justify-between py-1">
+                        <span>{it.productName} ({variantLabel(it.variantDescription)}) ×{it.quantity}</span>
+                        <span className="font-semibold">₪{(price * it.quantity).toFixed(2)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="text-center py-2">
+                <div className="text-sm text-muted-foreground">סכום לתשלום</div>
+                <div className="text-4xl font-bold">₪{total.toFixed(2)}</div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => { setPayMethod('cash'); setConfirming(true); }}
+                  className="p-5 rounded-xl border-2 hover:border-primary hover:bg-secondary transition-smooth flex flex-col items-center gap-2"
+                >
+                  <Banknote className="w-9 h-9 text-success" />
+                  <div className="font-semibold">מזומן</div>
+                </button>
+                <button
+                  onClick={() => { setPayMethod('credit'); setConfirming(true); }}
+                  className="p-5 rounded-xl border-2 hover:border-primary hover:bg-secondary transition-smooth flex flex-col items-center gap-2"
+                >
+                  <CreditCard className="w-9 h-9 text-primary" />
+                  <div className="font-semibold">אשראי</div>
+                </button>
+              </div>
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => setShowPayment(false)} className="gap-1.5">
+                  <ArrowRight className="w-4 h-4" /> חזור לעגלה
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2a: Cash confirmation */}
+          {confirming && payMethod === 'cash' && (
+            <div className="space-y-4 text-center py-4">
+              <CheckCircle2 className="w-16 h-16 mx-auto text-success" />
+              <div>
+                <div className="text-sm text-muted-foreground">אישור תשלום במזומן</div>
+                <div className="text-3xl font-bold">₪{total.toFixed(2)}</div>
+              </div>
+              <p className="text-muted-foreground">האם התקבל התשלום מהקונה?</p>
+              <DialogFooter className="sm:justify-center gap-2">
+                <Button variant="outline" onClick={goBackPayment}>חזור</Button>
+                <Button
+                  onClick={handleCashConfirm}
+                  className="bg-success hover:bg-success/90 text-success-foreground"
+                >
+                  אשר תשלום
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {/* Step 2b: Credit — Nedarim iframe */}
+          {confirming && payMethod === 'credit' && (
+            <NedarimPaymentFrame
+              total={total}
+              customer={customer!}
+              onCancel={goBackPayment}
+              onSuccess={handleCreditConfirm}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-/* ─────────────────────────────────────────
-   Cart Row — exact Lovable layout
-   RTL visual order: name | qty | price | 🗑
-───────────────────────────────────────── */
-function CartRow({ item, onQtyChange, onRemove }: {
-  item: CartItem;
-  onQtyChange: (q: number) => void;
-  onRemove: () => void;
-}) {
+// ── Compact transaction card for history panel ──
+function CompactTxCard({ tx }: { tx: { id: string; date: string; paymentMethod: string; totalAmount: number; items: { productName: string; quantity: number; unitPrice: number }[] } }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div
-      style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '10px 12px', borderRadius: 12,
-        border: '1px solid #eaecf5', background: '#fafbff',
-        transition: 'border-color .15s',
-      }}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = '#c5cae9')}
-      onMouseLeave={e => (e.currentTarget.style.borderColor = '#eaecf5')}
-    >
-      {/* Item name + details — RIGHT side (first in RTL) */}
-      <div style={{ flex: 1, textAlign: 'right', minWidth: 0 }}>
-        <p style={{ fontSize: 13, fontWeight: 800, color: '#1a1a2e', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {item.productName}
-        </p>
-        {item.variantDescription && (
-          <p style={{ fontSize: 11, color: '#9fa8da', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {item.variantDescription}
-          </p>
-        )}
-        <p style={{ fontSize: 11, color: NAVY, fontWeight: 700, margin: '2px 0 0' }}>
-          מחיר ליחידה ₪{item.unitPrice.toFixed(2)}
-        </p>
-      </div>
-
-      {/* Qty controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-        <button
-          onClick={() => onQtyChange(item.quantity + 1)}
-          style={{
-            width: 28, height: 28, borderRadius: 8, border: 'none',
-            background: NAVY, color: '#fff', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <Plus size={13} />
-        </button>
-        <span style={{ width: 24, textAlign: 'center', fontSize: 14, fontWeight: 900, color: '#1a1a2e' }}>
-          {item.quantity}
-        </span>
-        <button
-          onClick={() => onQtyChange(Math.max(0, item.quantity - 1))}
-          style={{
-            width: 28, height: 28, borderRadius: 8, border: 'none',
-            background: '#eef0f8', color: '#7986cb', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <Minus size={13} />
-        </button>
-      </div>
-
-      {/* Total price */}
-      <div style={{ flexShrink: 0, minWidth: 60, textAlign: 'left' }}>
-        <p style={{ fontSize: 14, fontWeight: 900, color: NAVY, margin: 0 }}>
-          ₪{item.totalPrice.toFixed(2)}
-        </p>
-      </div>
-
-      {/* Trash — far LEFT in RTL (last in DOM) */}
-      <button
-        onClick={onRemove}
-        style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: '#e0e4f0', flexShrink: 0, padding: 2,
-          display: 'flex', alignItems: 'center',
-          transition: 'color .15s',
-        }}
-        onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#ef5350')}
-        onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#e0e4f0')}
-      >
-        <Trash2 size={14} />
+    <Card className="p-3 shadow-soft">
+      <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium">{formatDate(tx.date)}</span>
+          <Badge variant="secondary" className="gap-1 text-xs">
+            {tx.paymentMethod === 'cash' && <><Banknote className="w-3 h-3" />מזומן</>}
+            {tx.paymentMethod === 'credit' && <><CreditCard className="w-3 h-3" />אשראי</>}
+            {tx.paymentMethod === 'special' && <><ShieldCheck className="w-3 h-3" />מיוחד</>}
+          </Badge>
+        </div>
+        <div className="text-lg font-bold text-primary">₪{tx.totalAmount.toFixed(2)}</div>
       </button>
+      {open && (
+        <div className="mt-3 pt-3 border-t space-y-1.5">
+          {tx.items.map((it, idx) => (
+            <div key={idx} className="flex items-center justify-between text-sm">
+              <span className="font-medium">{it.productName}</span>
+              <div className="flex items-center gap-4 text-muted-foreground">
+                <span>{it.quantity} × ₪{it.unitPrice.toFixed(2)}</span>
+                <span className="font-semibold text-foreground w-20 text-left">
+                  ₪{(it.quantity * it.unitPrice).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ── Nedarim Plus credit payment frame ──
+function NedarimPaymentFrame({
+  total, customer, onCancel, onSuccess,
+}: {
+  total: number;
+  customer: 'yeshiva' | 'external';
+  onCancel: () => void;
+  onSuccess: () => void;
+}) {
+  const settings = useStore(s => s.settings);
+  const mosadId = settings.nedarimInstitutionCode?.trim();
+
+  if (!mosadId) {
+    return (
+      <div className="space-y-4 text-center py-6">
+        <div className="text-destructive font-semibold">
+          קוד מוסד נדרים פלוס לא הוגדר. עבור להגדרות {'>'} חיבור לנדרים פלוס.
+        </div>
+        <Button variant="outline" onClick={onCancel}>חזור</Button>
+      </div>
+    );
+  }
+
+  const params = new URLSearchParams({
+    mosad: mosadId,
+    Amount: total.toFixed(2),
+    Comment: customer === 'yeshiva' ? 'מכירה בקופה - בן ישיבה' : 'מכירה בקופה - חיצוני',
+  });
+  const iframeUrl = `https://matara.pro/nedarimplus/online/?${params.toString()}`;
+
+  return (
+    <div className="space-y-3">
+      <div className="text-center text-sm text-muted-foreground">
+        סליקת אשראי דרך נדרים פלוס · סכום: <span className="font-bold">₪{total.toFixed(2)}</span>
+      </div>
+      <iframe
+        src={iframeUrl}
+        title="נדרים פלוס - טופס תשלום"
+        className="w-full rounded-xl border bg-white"
+        style={{ height: '70vh', minHeight: 600 }}
+        allow="payment *"
+      />
+      <div className="flex justify-between gap-2">
+        <Button variant="outline" onClick={onCancel}>בטל</Button>
+        <Button
+          onClick={onSuccess}
+          className="gap-2 bg-success hover:bg-success/90 text-success-foreground"
+        >
+          <CheckCircle2 className="w-4 h-4" /> התשלום בוצע — אשר
+        </Button>
+      </div>
     </div>
   );
 }
