@@ -1,28 +1,158 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../../../store/useStore';
-import { Search, Banknote, CreditCard, ShieldCheck, Receipt, Database } from 'lucide-react';
-import { Card } from '../../ui/card';
-import { Badge } from '../../ui/badge';
-import { Input } from '../../ui/input';
-import { cn } from '../../../lib/utils';
 import SpecialApprovals from './SpecialApprovals';
+import type { Transaction } from '../../../types';
 
-type SubTab = 'list' | 'approvals' | 'nedarim';
+// ─── Exact reference colors ────────────────────────────────────────────────────
+const NAVY    = '#1e3166';
+const INDIGO  = '#5c6bc0';
+const BORDER  = '#eaecf5';
+const ROW_BORDER = '#f4f6fb';
+const TH_COLOR   = '#9fa8da';
+const THEAD_BG   = '#f8f9fd';
+const HOVER_BG   = '#fafbff';
 
-const subTabs = [
-  { value: 'list'      as SubTab, label: 'עסקאות',             icon: Receipt },
-  { value: 'approvals' as SubTab, label: 'אישורים',            icon: ShieldCheck },
-  { value: 'nedarim'   as SubTab, label: 'אשראי - נדרים פלוס', icon: Database },
-];
+// ─── Button styles ─────────────────────────────────────────────────────────────
+const btnNavy = (bg?: string, shadow?: string): React.CSSProperties => ({
+  display: 'inline-flex', alignItems: 'center', gap: 7,
+  padding: '10px 18px', borderRadius: 12, border: 'none',
+  fontSize: 13, fontWeight: 700, cursor: 'pointer',
+  background: bg ?? NAVY, color: '#fff',
+  boxShadow: shadow ?? '0 4px 12px rgba(30,49,102,0.25)',
+  fontFamily: 'inherit', whiteSpace: 'nowrap' as const,
+  transition: 'all .2s',
+});
 
-const fmtDate = (iso: string) => new Date(iso).toLocaleString('he-IL');
-
-// ─── Row helper for stat cards ─────────────────────────────────────────────────
-function Row({ label, value, positive }: { label: string; value: number; positive?: boolean }) {
+// ─── Badge helper ──────────────────────────────────────────────────────────────
+function Badge({ children, bg, color }: { children: React.ReactNode; bg: string; color: string }) {
   return (
-    <div className="flex justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={cn('font-semibold', positive && 'text-green-600')}>₪{value.toFixed(2)}</span>
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '3px 10px', borderRadius: 20,
+      fontSize: 11, fontWeight: 700, background: bg, color,
+    }}>{children}</span>
+  );
+}
+
+// ─── Nedarim Plus Tab ──────────────────────────────────────────────────────────
+function NedarimTab() {
+  const settings = useStore(s => s.settings);
+  const hasCode  = !!settings.nedarimInstitutionCode;
+  return (
+    <div style={{ padding: 20 }}>
+      <div style={{
+        background: '#f0f4ff', borderRadius: 16, padding: 24, textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 36, marginBottom: 10 }}>🔄</div>
+        <div style={{ fontSize: 15, fontWeight: 800, color: NAVY, marginBottom: 6 }}>
+          שאיבת נתוני נדרים פלוס
+        </div>
+        <div style={{ fontSize: 12, color: TH_COLOR, marginBottom: 16 }}>
+          {hasCode
+            ? `קוד מוסד: ${settings.nedarimInstitutionCode}`
+            : 'יש להגדיר קוד מוסד בהגדרות'}
+        </div>
+        {hasCode ? (
+          <a
+            href={`https://www.nedarim.co.il/organizations/reports/?mosad=${settings.nedarimInstitutionCode}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={btnNavy()}
+          >
+            פתח דוחות נדרים פלוס
+          </a>
+        ) : (
+          <button style={btnNavy()} disabled>
+            פתח דוחות נדרים פלוס
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Transaction List Tab ──────────────────────────────────────────────────────
+function TxListTab({ transactions }: { transactions: Transaction[] }) {
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso);
+    const day   = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    return `${day}/${month}`;
+  };
+  const fmtTime = (iso: string) => {
+    const d = new Date(iso);
+    const h  = d.getHours().toString().padStart(2, '0');
+    const m  = d.getMinutes().toString().padStart(2, '0');
+    return `${h}:${m}`;
+  };
+
+  const thStyle: React.CSSProperties = {
+    textAlign: 'right', padding: '12px 14px',
+    fontSize: 11, fontWeight: 800, color: TH_COLOR,
+    borderBottom: `1px solid ${BORDER}`, whiteSpace: 'nowrap',
+  };
+  const tdStyle: React.CSSProperties = {
+    padding: '12px 14px', fontSize: 13, color: '#333',
+    fontWeight: 500, verticalAlign: 'middle',
+    borderBottom: `1px solid ${ROW_BORDER}`,
+  };
+
+  if (transactions.length === 0) {
+    return (
+      <div style={{ padding: 20, textAlign: 'center', color: TH_COLOR, fontSize: 13 }}>
+        אין עסקאות
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: 20 }}>
+      <div style={{ borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: THEAD_BG }}>
+                {['תאריך', 'שעה', 'סכום', 'קונה', 'תשלום', 'פריטים'].map(h => (
+                  <th key={h} style={thStyle}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[...transactions]
+                .sort((a, b) => b.date.localeCompare(a.date))
+                .map((tx, idx, arr) => (
+                  <tr
+                    key={tx.id}
+                    style={{ borderBottom: idx < arr.length - 1 ? `1px solid ${ROW_BORDER}` : 'none' }}
+                    onMouseEnter={e => e.currentTarget.querySelectorAll('td').forEach(td => (td.style.background = HOVER_BG))}
+                    onMouseLeave={e => e.currentTarget.querySelectorAll('td').forEach(td => (td.style.background = ''))}
+                  >
+                    <td style={{ ...tdStyle, borderBottom: 'none' }}>{fmtDate(tx.date)}</td>
+                    <td style={{ ...tdStyle, borderBottom: 'none', color: TH_COLOR }}>{fmtTime(tx.date)}</td>
+                    <td style={{ ...tdStyle, borderBottom: 'none', fontWeight: 900, color: '#2e7d32' }}>
+                      ₪{tx.totalAmount.toFixed(2)}
+                    </td>
+                    <td style={{ ...tdStyle, borderBottom: 'none' }}>
+                      {tx.buyerType === 'yeshiva'
+                        ? <Badge bg="#eef0fb" color={NAVY}>💙 ישיבה</Badge>
+                        : <Badge bg="#f0f2f8" color="#666">🧑 חיצוני</Badge>}
+                    </td>
+                    <td style={{ ...tdStyle, borderBottom: 'none' }}>
+                      {tx.paymentMethod === 'cash'
+                        ? <Badge bg="#e8f5e9" color="#2e7d32">💵 מזומן</Badge>
+                        : tx.paymentMethod === 'credit'
+                        ? <Badge bg="#eef0fb" color={INDIGO}>💳 אשראי</Badge>
+                        : <Badge bg="#fff3e0" color="#e65100">🔐 מיוחד</Badge>}
+                    </td>
+                    <td style={{ ...tdStyle, borderBottom: 'none', fontWeight: 700 }}>
+                      {tx.items.length}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
@@ -30,196 +160,131 @@ function Row({ label, value, positive }: { label: string; value: number; positiv
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function IsakaotPage() {
   const { transactions, transferToSafe, getCashNotTransferred, getCreditNotTransferred, safeEntries } = useStore();
-  const [active, setActive] = useState<SubTab>('list');
-  const [query, setQuery]   = useState('');
-  const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc'>('date_desc');
+  const [activeTab, setActiveTab] = useState<'list' | 'approvals' | 'nedarim'>('list');
 
   const cashNotTransferred   = getCashNotTransferred();
   const creditNotTransferred = getCreditNotTransferred();
 
   const totalCash   = useMemo(() => transactions.filter(t => t.paymentMethod === 'cash').reduce((s, t) => s + t.totalAmount, 0), [transactions]);
   const totalCredit = useMemo(() => transactions.filter(t => t.paymentMethod === 'credit').reduce((s, t) => s + t.totalAmount, 0), [transactions]);
-
   const cashToSafe   = safeEntries.filter(e => e.source === 'cash'   && e.type === 'income').reduce((s, e) => s + e.amount, 0);
   const creditToSafe = safeEntries.filter(e => e.source === 'credit' && e.type === 'income').reduce((s, e) => s + e.amount, 0);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let arr = transactions.filter(t => {
-      if (!q) return true;
-      if (String(t.totalAmount).includes(q)) return true;
-      if (t.cashierName.toLowerCase().includes(q)) return true;
-      return t.items.some(it => it.productName.toLowerCase().includes(q));
-    });
-    arr = [...arr].sort((a, b) => {
-      switch (sortBy) {
-        case 'date_asc':    return a.date.localeCompare(b.date);
-        case 'amount_desc': return b.totalAmount - a.totalAmount;
-        case 'amount_asc':  return a.totalAmount - b.totalAmount;
-        default:            return b.date.localeCompare(a.date);
-      }
-    });
-    return arr;
-  }, [transactions, query, sortBy]);
+  const handleTransfer = (source: 'cash' | 'credit') => {
+    const pending = transactions.filter(t => t.paymentMethod === source && !t.transferredToSafe);
+    if (pending.length === 0) return;
+    const amount = pending.reduce((s, t) => s + t.totalAmount, 0);
+    transferToSafe(source, pending.map(t => t.id), amount);
+  };
 
-  return (
-    <div className="space-y-4" dir="rtl">
-
-      {/* ── Two summary cards ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Card className="p-4 border-primary/30">
-          <div className="flex items-center gap-2 mb-2">
-            <CreditCard className="w-4 h-4 text-primary" />
-            <h4 className="font-semibold">אשראי</h4>
-          </div>
-          <div className="space-y-1 text-sm">
-            <Row label="סך עסקאות"      value={totalCredit} />
-            <Row label="הכנסות לכספת"   value={creditToSafe} positive />
-            <div className="pt-2 border-t flex justify-between font-bold">
-              <span>מאזן</span>
-              <span className={cn(creditNotTransferred >= 0 ? 'text-yellow-600' : 'text-green-600')}>
-                ₪{creditNotTransferred.toFixed(2)}
-              </span>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 border-green-200">
-          <div className="flex items-center gap-2 mb-2">
-            <Banknote className="w-4 h-4 text-green-600" />
-            <h4 className="font-semibold">מזומן</h4>
-          </div>
-          <div className="space-y-1 text-sm">
-            <Row label="סך עסקאות"      value={totalCash} />
-            <Row label="הכנסות לכספת"   value={cashToSafe} positive />
-            <div className="pt-2 border-t flex justify-between font-bold">
-              <span>מאזן</span>
-              <span className={cn(cashNotTransferred >= 0 ? 'text-yellow-600' : 'text-green-600')}>
-                ₪{cashNotTransferred.toFixed(2)}
-              </span>
-            </div>
-          </div>
-        </Card>
+  // ── Stat card helper ──────────────────────────────────────────────────────────
+  const StatCard = ({ emoji, val, label, subColor, sub }: {
+    emoji: string; val: number; label: string; subColor: string; sub: string;
+  }) => (
+    <div style={{
+      background: '#fff', borderRadius: 18, padding: '18px 16px',
+      boxShadow: '0 2px 14px rgba(26,35,126,0.07)', border: `1px solid ${BORDER}`,
+      textAlign: 'center',
+    }}>
+      <div style={{ fontSize: 28, marginBottom: 8 }}>{emoji}</div>
+      <div style={{ fontSize: 22, fontWeight: 900, color: NAVY, lineHeight: 1 }}>
+        ₪{val.toFixed(0)}
       </div>
-
-      {/* ── Sub-tab bar ── */}
-      <div className="grid grid-cols-3 gap-1 bg-muted p-1 rounded-lg">
-        {subTabs.map(t => (
-          <button
-            key={t.value}
-            onClick={() => setActive(t.value)}
-            className={cn(
-              'inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium',
-              active === t.value
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <t.icon className="w-4 h-4" /> {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── List tab ── */}
-      {active === 'list' && (
-        <>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-64">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder="חיפוש לפי שם, מוצר, סכום..."
-                className="pr-10"
-              />
-            </div>
-            <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value as typeof sortBy)}
-              className="h-10 rounded-md border bg-background px-3 text-sm"
-            >
-              <option value="date_desc">תאריך - חדש לישן</option>
-              <option value="date_asc">תאריך - ישן לחדש</option>
-              <option value="amount_desc">סכום - גבוה לנמוך</option>
-              <option value="amount_asc">סכום - נמוך לגבוה</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            {filtered.length === 0 && (
-              <Card className="p-8 text-center text-muted-foreground">אין עסקאות</Card>
-            )}
-            {filtered.map(tx => (
-              <Card key={tx.id} className="p-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium">{fmtDate(tx.date)}</span>
-                    <Badge variant="secondary" className="gap-1">
-                      {tx.paymentMethod === 'cash'   && <><Banknote   className="w-3 h-3" />מזומן</>}
-                      {tx.paymentMethod === 'credit' && <><CreditCard className="w-3 h-3" />אשראי</>}
-                    </Badge>
-                    <Badge variant="outline">
-                      {tx.buyerType === 'yeshiva' ? 'בן ישיבה' : 'מבחוץ'}
-                    </Badge>
-                    {tx.transferredToSafe && (
-                      <Badge variant="outline" className="text-muted-foreground">הועבר לכספת</Badge>
-                    )}
-                  </div>
-                  <div className="text-lg font-bold text-primary">₪{tx.totalAmount.toFixed(2)}</div>
-                </div>
-                <div className="mt-2 text-xs text-muted-foreground">
-                  {tx.items.map((it, i) => (
-                    <span key={i} className="ml-2">
-                      {it.productName}
-                      {it.variantDescription && ` (${it.variantDescription})`}
-                      {' ×'}{it.quantity}
-                    </span>
-                  ))}
-                </div>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* ── Approvals tab ── */}
-      {active === 'approvals' && <SpecialApprovals />}
-
-      {/* ── Nedarim tab ── */}
-      {active === 'nedarim' && <NedarimTab />}
+      <div style={{ fontSize: 11, color: '#aab', fontWeight: 600, marginTop: 5 }}>{label}</div>
+      <div style={{ fontSize: 11, fontWeight: 700, marginTop: 4, color: subColor }}>{sub}</div>
     </div>
   );
-}
 
-// ─── Nedarim placeholder ───────────────────────────────────────────────────────
-function NedarimTab() {
-  const settings = useStore(s => s.settings);
+  // ── Inner tab button ─────────────────────────────────────────────────────────
+  const InnerTab = ({ id, label }: { id: typeof activeTab; label: string }) => (
+    <button
+      onClick={() => setActiveTab(id)}
+      style={{
+        padding: '7px 18px', borderRadius: 12, border: 'none',
+        fontSize: 12, fontWeight: 700, cursor: 'pointer',
+        transition: 'all .2s', fontFamily: 'inherit',
+        background: activeTab === id ? NAVY : '#f0f2f8',
+        color:      activeTab === id ? '#fff' : TH_COLOR,
+        boxShadow:  activeTab === id ? '0 3px 10px rgba(30,49,102,0.25)' : 'none',
+      }}
+    >{label}</button>
+  );
+
   return (
-    <div className="flex flex-col items-center justify-center py-12 gap-4">
-      <div className="bg-primary/5 border-2 border-primary/20 rounded-2xl p-8 text-center max-w-sm">
-        <div className="text-5xl mb-4">🔄</div>
-        <h3 className="text-base font-black text-primary mb-2">שאיבת נתוני נדרים פלוס</h3>
-        <p className="text-sm text-muted-foreground mb-5">
-          {settings.nedarimInstitutionCode
-            ? `קוד מוסד: ${settings.nedarimInstitutionCode}`
-            : 'יש להגדיר קוד מוסד בהגדרות'}
-        </p>
-        {settings.nedarimInstitutionCode ? (
-          <a
-            href={`https://www.nedarim.co.il/organizations/reports/?mosad=${settings.nedarimInstitutionCode}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 gradient-primary text-primary-foreground text-sm font-bold px-5 py-2.5 rounded-xl hover:opacity-90 transition-smooth shadow-soft"
-          >
-            <Database className="w-4 h-4" />
-            פתח דוחות נדרים פלוס
-          </a>
-        ) : (
-          <p className="text-sm font-semibold text-orange-600 bg-orange-50 rounded-lg px-4 py-2 border border-orange-200">
-            הגדר קוד מוסד בהגדרות תחילה
-          </p>
-        )}
+    <div dir="rtl">
+
+      {/* ── 4 Stat cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 18 }}>
+        <StatCard emoji="💵" val={totalCash}    label="קניות מזומן"   subColor="#4caf50" sub='סה"כ' />
+        <StatCard emoji="🏦" val={cashToSafe}   label="הועבר לכספת"  subColor={INDIGO}  sub="מזומן" />
+        <StatCard emoji="💳" val={totalCredit}  label="קניות אשראי"  subColor="#e65100" sub='סה"כ' />
+        <StatCard emoji="📥" val={creditToSafe} label="נמשך לכספת"   subColor="#9c27b0" sub="אשראי" />
       </div>
+
+      {/* ── Transfer buttons ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
+        {/* Cash */}
+        <div style={{
+          background: '#f0faf0', borderRadius: 18, padding: '16px 20px',
+          border: '1.5px solid #a5d6a7',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <button
+            onClick={() => handleTransfer('cash')}
+            style={btnNavy('#4caf50', '0 4px 10px rgba(76,175,80,0.3)')}
+          >↓ העבר לכספת</button>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 14, fontWeight: 900, color: '#2e7d32' }}>₪{cashNotTransferred.toFixed(2)}</div>
+            <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>ממתין — מזומן</div>
+          </div>
+        </div>
+        {/* Credit */}
+        <div style={{
+          background: '#e3f2fd', borderRadius: 18, padding: '16px 20px',
+          border: '1.5px solid #90caf9',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <button
+            onClick={() => handleTransfer('credit')}
+            style={btnNavy('#1565c0', '0 4px 10px rgba(21,101,192,0.3)')}
+          >↓ העבר לכספת</button>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 14, fontWeight: 900, color: '#1565c0' }}>₪{creditNotTransferred.toFixed(2)}</div>
+            <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>ממתין — אשראי</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main card with inner tabs ── */}
+      <div style={{
+        background: '#fff', borderRadius: 20,
+        boxShadow: '0 2px 14px rgba(26,35,126,0.07)',
+        border: `1px solid ${BORDER}`, overflow: 'visible',
+      }}>
+        <div style={{ borderRadius: 20, overflow: 'hidden' }}>
+
+          {/* Inner tabs */}
+          <div style={{
+            display: 'flex', gap: 6, padding: '16px 20px',
+            borderBottom: '1px solid #f0f2fa',
+          }}>
+            <InnerTab id="list"      label="📋 רשימת עסקאות" />
+            <InnerTab id="approvals" label="✅ אישורים מיוחדים" />
+            <InnerTab id="nedarim"   label="🔄 שאיבת נדרים פלוס" />
+          </div>
+
+          {/* Tab content */}
+          {activeTab === 'list'      && <TxListTab transactions={transactions} />}
+          {activeTab === 'approvals' && (
+            <div style={{ padding: 20 }}>
+              <SpecialApprovals />
+            </div>
+          )}
+          {activeTab === 'nedarim'   && <NedarimTab />}
+
+        </div>
+      </div>
+
     </div>
   );
 }
