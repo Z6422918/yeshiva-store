@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useStore } from '../../../store/useStore';
-import { ChevronRight, ChevronDown } from 'lucide-react';
+import { ChevronRight, ChevronDown, Barcode, ScanLine } from 'lucide-react';
 import type { Product, ProductVariant, Supply, PriceHistoryEntry, Supplier } from '../../../types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import { Input } from '../../ui/input';
@@ -81,61 +81,173 @@ function ProductDialog({ open, onClose, editProduct, onAdded }: {
 }) {
   const { suppliers, categories: storedCats, products, addProduct, updateProduct } = useStore();
   const allCats = [...new Set([...storedCats, ...products.map(p => p.category).filter(Boolean)])].sort();
+  const barcodeRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name: editProduct?.name ?? '', supplierId: editProduct?.supplierId ?? '',
     category: editProduct?.category ?? '', barcode: editProduct?.barcode ?? '',
     company: editProduct?.company ?? '', isActive: editProduct?.isActive ?? true,
   });
+  const [newCatInput, setNewCatInput] = useState('');
 
   const handleSave = () => {
     if (!form.name.trim()) return;
-    if (editProduct) { updateProduct(editProduct.id, form); }
-    else { const id = addProduct({ ...form, variants: [] }); onAdded?.(id); }
-    onClose();
+    const catVal = form.category === '__new__' ? newCatInput.trim() : form.category;
+    const finalForm = { ...form, category: catVal };
+    if (editProduct) { updateProduct(editProduct.id, finalForm); onClose(); }
+    else { const id = addProduct({ ...finalForm, variants: [] }); onAdded?.(id); onClose(); }
   };
 
-  const f = (label: string, key: keyof typeof form) => (
-    <div className="space-y-1" key={key}>
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <Input value={form[key] as string}
-        onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} className="h-9 text-sm" />
+  // ── shared input / select styles ─────────────────────────────────────────────
+  const inp: React.CSSProperties = {
+    width: '100%', height: 38, border: '1.5px solid #d5d9ef', borderRadius: 10,
+    padding: '0 12px', fontSize: 13, fontFamily: 'inherit', outline: 'none',
+    background: '#fff', color: '#333', boxSizing: 'border-box',
+    transition: 'border-color .15s',
+  };
+  const sel: React.CSSProperties = {
+    ...inp, appearance: 'none', paddingLeft: 28, cursor: 'pointer',
+  };
+  const lbl: React.CSSProperties = {
+    display: 'block', fontSize: 12, fontWeight: 700, color: '#9fa8da', marginBottom: 6,
+  };
+
+  const SelectWrap = ({ children }: { children: React.ReactNode }) => (
+    <div style={{ position: 'relative' }}>
+      {children}
+      <ChevronDown size={14} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#9fa8da', pointerEvents: 'none' }} />
     </div>
   );
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent dir="rtl">
-        <DialogHeader><DialogTitle>{editProduct ? 'עריכת מוצר' : 'הוספת מוצר חדש'}</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
-          {f('שם מוצר', 'name')}{f('ברקוד', 'barcode')}{f('חברה', 'company')}
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">קטגוריה</Label>
-            <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
-              className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="">— בחר קטגוריה —</option>
-              {allCats.map(c => <option key={c} value={c}>{c}</option>)}
-              <option value="__new__">+ קטגוריה חדשה...</option>
-            </select>
+      <DialogContent dir="rtl" style={{ maxWidth: 460 }}>
+        <DialogHeader>
+          <DialogTitle style={{ fontSize: 17, fontWeight: 900, color: NAVY }}>
+            {editProduct ? 'עריכת מוצר' : 'מוצר חדש'}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '4px 0' }}>
+
+          {/* ── Barcode: full width ── */}
+          <div>
+            <label style={lbl}>ברקוד</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {/* Input with icon inside */}
+              <div style={{ flex: 1, position: 'relative' }}>
+                <Barcode size={16} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#9fa8da', pointerEvents: 'none' }} />
+                <input
+                  ref={barcodeRef}
+                  value={form.barcode}
+                  onChange={e => setForm(p => ({ ...p, barcode: e.target.value }))}
+                  placeholder="סרוק או הקלד ברקוד..."
+                  style={{ ...inp, paddingRight: 34 }}
+                  onFocus={e => (e.currentTarget.style.borderColor = NAVY)}
+                  onBlur={e => (e.currentTarget.style.borderColor = '#d5d9ef')}
+                />
+              </div>
+              {/* Scan button */}
+              <button
+                type="button"
+                onClick={() => barcodeRef.current?.focus()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '0 14px', height: 38, borderRadius: 10,
+                  border: '1.5px solid #d5d9ef', background: '#fff',
+                  color: INDIGO, fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                <ScanLine size={14} />
+                סרוק
+              </button>
+            </div>
           </div>
+
+          {/* ── Row 2: ספק | חברה ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>ספק</label>
+              <SelectWrap>
+                <select value={form.supplierId} onChange={e => setForm(p => ({ ...p, supplierId: e.target.value }))} style={sel}>
+                  <option value="">ללא ספק</option>
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </SelectWrap>
+            </div>
+            <div>
+              <label style={lbl}>חברה</label>
+              <input value={form.company} onChange={e => setForm(p => ({ ...p, company: e.target.value }))} style={inp}
+                onFocus={e => (e.currentTarget.style.borderColor = NAVY)}
+                onBlur={e => (e.currentTarget.style.borderColor = '#d5d9ef')} />
+            </div>
+          </div>
+
+          {/* ── Row 3: שם מוצר | קטגוריה ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>שם מוצר</label>
+              <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} style={inp}
+                onFocus={e => (e.currentTarget.style.borderColor = NAVY)}
+                onBlur={e => (e.currentTarget.style.borderColor = '#d5d9ef')} />
+            </div>
+            <div>
+              <label style={lbl}>קטגוריה</label>
+              <SelectWrap>
+                <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} style={sel}>
+                  <option value="">ללא קטגוריה</option>
+                  {allCats.map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="__new__">+ קטגוריה חדשה...</option>
+                </select>
+              </SelectWrap>
+            </div>
+          </div>
+
+          {/* New category inline input */}
           {form.category === '__new__' && (
-            <div className="space-y-1 col-span-2">
-              <Label className="text-xs text-muted-foreground">שם קטגוריה חדשה</Label>
-              <Input autoFocus placeholder="שם קטגוריה..." className="h-9 text-sm"
-                onBlur={e => { if (e.target.value.trim()) setForm(p => ({ ...p, category: e.target.value.trim() })); }} />
+            <div>
+              <label style={lbl}>שם קטגוריה חדשה</label>
+              <input
+                autoFocus
+                value={newCatInput}
+                onChange={e => setNewCatInput(e.target.value)}
+                placeholder="הקלד שם קטגוריה..."
+                style={inp}
+                onFocus={e => (e.currentTarget.style.borderColor = NAVY)}
+                onBlur={e => (e.currentTarget.style.borderColor = '#d5d9ef')}
+              />
             </div>
           )}
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">ספק</Label>
-            <select value={form.supplierId} onChange={e => setForm(p => ({ ...p, supplierId: e.target.value }))}
-              className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="">— בחר ספק —</option>
-              {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
+
+          {/* Note */}
+          {!editProduct && (
+            <p style={{ fontSize: 11, color: INDIGO, textAlign: 'center', margin: 0, lineHeight: 1.5 }}>
+              לאחר שמירה תיפתח חלונית להוספת הסוג הראשוני.<br />
+              ביטול בשלב זה ימחק את המוצר
+            </p>
+          )}
+
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>ביטול</Button>
-          <Button onClick={handleSave}>{editProduct ? 'שמור שינויים' : 'הוסף מוצר'}</Button>
+
+        <DialogFooter style={{ gap: 8 }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '9px 20px', borderRadius: 10, border: '1.5px solid #d5d9ef',
+              background: '#fff', color: '#555', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >ביטול</button>
+          <button
+            onClick={handleSave}
+            style={{
+              padding: '9px 20px', borderRadius: 10, border: 'none',
+              background: NAVY, color: '#fff', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 4px 12px rgba(30,49,102,0.25)',
+            }}
+          >{editProduct ? 'שמור שינויים' : 'שמור'}</button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
