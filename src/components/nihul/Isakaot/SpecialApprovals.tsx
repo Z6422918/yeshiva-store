@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../../../store/useStore';
-import { Save, ShieldCheck, KeyRound, Check, X, Clock, Banknote, CreditCard } from 'lucide-react';
+import { Save, ShieldCheck, KeyRound, Check, X, Clock, Banknote, CreditCard, RefreshCw } from 'lucide-react';
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -19,6 +19,7 @@ export default function SpecialApprovals() {
     transactions, moveTransactionToMethod,
     settings, updateSettings,
   } = useStore();
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Code management (loaded from settings)
   const [specialCode, setSpecialCode] = useState(settings?.specialApprovalCode ?? '1234');
@@ -89,6 +90,13 @@ export default function SpecialApprovals() {
               <Badge variant="destructive" className="text-xs">{pending.length}</Badge>
             )}
           </div>
+          <Button
+            variant="outline" size="sm"
+            onClick={() => setRefreshKey(k => k + 1)}
+            className="gap-1.5 text-muted-foreground"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> רענן
+          </Button>
         </div>
 
         {pending.length === 0 ? (
@@ -157,45 +165,62 @@ export default function SpecialApprovals() {
             עסקאות שאושרו באישור מיוחד וטרם שויכו לאופן תשלום סופי
           </p>
           <div className="space-y-2">
-            {specialTxs.map(t => (
-              <Card key={t.id} className="p-3 bg-background">
-                <div className="flex items-start justify-between flex-wrap gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium">{fmtDate(t.date)}</span>
-                      <Badge variant="outline">
-                        {t.buyerType === 'yeshiva' ? 'בן ישיבה' : 'מבחוץ'}
-                      </Badge>
+            {specialTxs.map(t => {
+              // Look up reason from matching approved approval
+              const matchApproval = specialApprovals.find(a =>
+                a.status === 'approved' &&
+                a.approverName === t.cashierName &&
+                Math.abs((a.total ?? 0) - t.totalAmount) < 0.01
+              );
+              return (
+                <Card key={t.id} className="p-3 bg-background">
+                  <div className="flex items-start justify-between flex-wrap gap-3">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium">{fmtDate(t.date)}</span>
+                        <Badge variant="outline">
+                          {t.buyerType === 'yeshiva' ? 'בן ישיבה' : 'מבחוץ'}
+                        </Badge>
+                        {t.cashierName && (
+                          <Badge variant="secondary" className="text-xs">{t.cashierName}</Badge>
+                        )}
+                      </div>
+                      {matchApproval?.reason && (
+                        <div className="text-xs text-muted-foreground">
+                          סיבה: {matchApproval.reason}
+                          {matchApproval.approverName && ` [אושר ע"י ${matchApproval.approverName}]`}
+                        </div>
+                      )}
+                      <div className="text-xs text-muted-foreground">
+                        {t.items.map((it, i) => (
+                          <span key={i} className="ml-2">{it.productName} ×{it.quantity}</span>
+                        ))}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {t.items.map((it, i) => (
-                        <span key={i} className="ml-2">{it.productName} ×{it.quantity}</span>
-                      ))}
+                    <div className="text-left shrink-0">
+                      <div className="text-lg font-bold text-primary mb-2">{fmtMoney(t.totalAmount)}</div>
+                      <div className="flex gap-2 flex-wrap justify-end">
+                        <Button
+                          size="sm"
+                          onClick={() => moveTransactionToMethod(t.id, 'cash')}
+                          className="gap-1 bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          <Banknote className="w-4 h-4" /> העברה למזומן
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => moveTransactionToMethod(t.id, 'credit')}
+                          className="gap-1"
+                        >
+                          <CreditCard className="w-4 h-4" /> שיוך לאשראי
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-left">
-                    <div className="text-lg font-bold text-primary mb-2">{fmtMoney(t.totalAmount)}</div>
-                    <div className="flex gap-2 flex-wrap justify-end">
-                      <Button
-                        size="sm"
-                        onClick={() => moveTransactionToMethod(t.id, 'cash')}
-                        className="gap-1 bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        <Banknote className="w-4 h-4" /> העברה למזומן
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => moveTransactionToMethod(t.id, 'credit')}
-                        className="gap-1"
-                      >
-                        <CreditCard className="w-4 h-4" /> סמן כאשראי
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         </Card>
       )}

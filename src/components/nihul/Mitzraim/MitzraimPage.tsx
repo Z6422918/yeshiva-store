@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useStore } from '../../../store/useStore';
-import { ChevronRight, ChevronDown, Barcode, ScanLine } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Barcode, ScanLine } from 'lucide-react';
 import type { Product, ProductVariant, Supply, PriceHistoryEntry, Supplier } from '../../../types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import { Input } from '../../ui/input';
@@ -36,17 +36,17 @@ const badgeBase: React.CSSProperties = {
   fontSize: 11, fontWeight: 700,
 };
 
-// ─── Stock badge ───────────────────────────────────────────────────────────────
+// ─── Stock badge — circular number pill ────────────────────────────────────────
 function StockBadge({ stock }: { stock: number }) {
   const base: React.CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', gap: 4,
-    padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 800,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    minWidth: 28, height: 28, borderRadius: 99,
+    fontSize: 12, fontWeight: 800, color: '#fff',
+    padding: '0 7px', letterSpacing: 0,
   };
   if (stock <= 0)
-    return <span style={{ ...base, background: '#ffebee', color: '#c62828' }}>🔴 אזל</span>;
-  if (stock < 5)
-    return <span style={{ ...base, background: '#fff3e0', color: '#e65100' }}>🟠 {stock}</span>;
-  return   <span style={{ ...base, background: '#e8f5e9', color: '#2e7d32' }}>🟢 {stock}</span>;
+    return <span style={{ ...base, background: '#e53935' }}>{stock}</span>;
+  return <span style={{ ...base, background: NAVY }}>{stock}</span>;
 }
 
 // ─── Icon button ───────────────────────────────────────────────────────────────
@@ -732,7 +732,7 @@ export default function MitzraimPage() {
                                   onClick={() => toggleExpand(rowKey)}
                                   style={{ width: 24, height: 24, borderRadius: 6, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: TH_COLOR, margin: '0 auto' }}
                                 >
-                                  {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                  {isExpanded ? <ChevronDown size={14} /> : <ChevronLeft size={14} />}
                                 </button>
                               )}
                             </td>
