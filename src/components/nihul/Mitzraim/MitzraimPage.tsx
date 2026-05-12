@@ -555,7 +555,7 @@ export default function MitzraimPage() {
             marginRight: 'auto', background: '#fff',
             border: `1.5px solid ${BORDER2}`, borderRadius: 12,
             padding: '10px 16px', fontSize: 13, color: '#333',
-            outline: 'none', width: 280, textAlign: 'right',
+            outline: 'none', width: 260, textAlign: 'right',
             fontFamily: 'inherit',
           }}
         />
