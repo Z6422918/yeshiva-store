@@ -71,6 +71,12 @@ interface AppState {
   addSpecialApproval: (approval: Omit<SpecialApproval, 'id' | 'date'>) => void;
   updateApprovalStatus: (id: string, status: 'approved' | 'rejected' | 'cancelled', approverName?: string) => void;
 
+  // Actions - Categories
+  categories: string[];
+  addCategory: (name: string) => void;
+  renameCategory: (oldName: string, newName: string) => void;
+  deleteCategory: (name: string) => void;
+
   // Actions - Settings
   updateSettings: (settings: Partial<Settings>) => void;
 
@@ -112,6 +118,7 @@ export const useStore = create<AppState>()(
       specialApprovals: [],
       supplierPayments: [],
       settings: initialSettings,
+      categories: [],
       cart: [],
       buyerType: 'yeshiva',
 
@@ -384,6 +391,18 @@ export const useStore = create<AppState>()(
         transactions: s.transactions.map(t =>
           t.id === transactionId ? { ...t, paymentMethod: method } : t
         )
+      })),
+
+      addCategory: (name) => set(s => ({
+        categories: s.categories.includes(name.trim()) ? s.categories : [...s.categories, name.trim()]
+      })),
+      renameCategory: (oldName, newName) => set(s => ({
+        categories: s.categories.map(c => c === oldName ? newName.trim() : c),
+        products: s.products.map(p => p.category === oldName ? { ...p, category: newName.trim() } : p),
+      })),
+      deleteCategory: (name) => set(s => ({
+        categories: s.categories.filter(c => c !== name),
+        products: s.products.map(p => p.category === name ? { ...p, category: '' } : p),
       })),
 
       updateSettings: (settings) => set(s => ({ settings: { ...s.settings, ...settings } })),
