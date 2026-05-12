@@ -7,16 +7,10 @@ import { Card } from '../../ui/card';
 import { cn } from '../../../lib/utils';
 import {
   TrendingUp, TrendingDown, Vault, Wallet, Banknote, CreditCard,
-  ShieldCheck, HandCoins, Package, AlertCircle,
+  ShieldCheck, HandCoins, Package,
 } from 'lucide-react';
 
 type SubTab = 'income' | 'expenses' | 'debts';
-
-const subTabs = [
-  { value: 'income'   as SubTab, label: 'הכנסות',  icon: TrendingUp },
-  { value: 'expenses' as SubTab, label: 'הוצאות',  icon: TrendingDown },
-  { value: 'debts'    as SubTab, label: 'חובות',   icon: AlertCircle },
-];
 
 const fmtMoney = (n: number) => `₪${n.toFixed(2)}`;
 
@@ -200,19 +194,25 @@ export default function KesafimPage() {
       <InventoryCard />
 
       {/* ── Sub-tabs ── */}
-      <div className="grid grid-cols-3 gap-1 bg-muted p-1 rounded-lg">
-        {subTabs.map(t => (
+      <div style={{ display: 'flex', gap: 6 }}>
+        {[
+          { value: 'income'   as SubTab, emoji: '💰', label: 'הכנסות' },
+          { value: 'expenses' as SubTab, emoji: '📤', label: 'הוצאות' },
+          { value: 'debts'    as SubTab, emoji: '🧾', label: 'חובות'  },
+        ].map(t => (
           <button
             key={t.value}
             onClick={() => setSubTab(t.value)}
-            className={cn(
-              'inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all',
-              subTab === t.value
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
+            style={{
+              padding: '7px 18px', borderRadius: 12, border: 'none',
+              fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              transition: 'all .2s', fontFamily: "'Heebo', sans-serif",
+              background: subTab === t.value ? '#1e3166' : '#f0f2f8',
+              color:      subTab === t.value ? '#fff'    : '#9fa8da',
+              boxShadow:  subTab === t.value ? '0 3px 10px rgba(30,49,102,0.25)' : 'none',
+            }}
           >
-            <t.icon className="w-4 h-4" /> {t.label}
+            {t.emoji} {t.label}
           </button>
         ))}
       </div>

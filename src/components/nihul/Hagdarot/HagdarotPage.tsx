@@ -456,13 +456,49 @@ function ResetSystem() {
   );
 }
 
+type HagTab = 'nedarim' | 'users' | 'reset';
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function HagdarotPage() {
+  const [active, setActive] = useState<HagTab>('nedarim');
+
+  const hagTabs: { value: HagTab; emoji: string; label: string }[] = [
+    { value: 'nedarim', emoji: '🔗', label: 'נדרים פלוס' },
+    { value: 'users',   emoji: '👥', label: 'משתמשים'   },
+    { value: 'reset',   emoji: '⚠️', label: 'איפוס'      },
+  ];
+
   return (
-    <div className="space-y-6 max-w-5xl mx-auto" dir="rtl">
-      <NedarimSettings />
-      <UsersManagement />
-      <ResetSystem />
+    <div className="max-w-5xl mx-auto" dir="rtl">
+
+      {/* ── Section selector ── */}
+      <div style={{
+        background: '#eef0f8', borderRadius: 16, padding: 5,
+        width: 'fit-content', marginBottom: 20,
+        display: 'flex', gap: 4,
+      }}>
+        {hagTabs.map(t => (
+          <button
+            key={t.value}
+            onClick={() => setActive(t.value)}
+            style={{
+              padding: '8px 20px', borderRadius: 12, border: 'none',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              transition: 'all .2s', fontFamily: "'Heebo', sans-serif",
+              background: active === t.value ? '#fff'        : 'transparent',
+              color:      active === t.value ? '#1a1a2e'     : '#9fa8da',
+              boxShadow:  active === t.value ? '0 2px 8px rgba(30,49,102,0.12)' : 'none',
+            }}
+          >
+            {t.emoji} {t.label}
+          </button>
+        ))}
+      </div>
+
+      {active === 'nedarim' && <NedarimSettings />}
+      {active === 'users'   && <UsersManagement />}
+      {active === 'reset'   && <ResetSystem />}
+
     </div>
   );
 }
