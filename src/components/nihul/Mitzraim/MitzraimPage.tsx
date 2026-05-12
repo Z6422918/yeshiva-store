@@ -105,6 +105,7 @@ function VariantDialog({ open, onClose, productId, editVariant }: VariantDialogP
   const { addVariant, updateVariant } = useStore();
   const [form, setForm] = useState({
     sizeType: editVariant?.sizeType ?? '',
+    size: editVariant?.size ?? '',
     details1: editVariant?.details1 ?? '',
     details2: editVariant?.details2 ?? '',
     yeshivaPrice: editVariant?.yeshivaPrice ?? 0,
