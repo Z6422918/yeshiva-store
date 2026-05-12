@@ -1,18 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../../../store/useStore';
 import {
-  Save, Users, UserPlus, Pencil, Trash2, Landmark, KeyRound,
-  ShieldAlert, RotateCcw, AlertTriangle,
+  Save, ShieldAlert, RotateCcw, AlertTriangle,
 } from 'lucide-react';
 import type { User, UserRole, Supplier } from '../../../types';
 import { Card } from '../../ui/card';
-import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
-import { cn } from '../../../lib/utils';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const NAVY = '#1e3166';
@@ -149,6 +145,48 @@ const roleLabels: Record<UserRole, string> = {
   kupa: 'קופה', manager: 'מנהל', admin: 'מנהל ראשי',
 };
 
+// ─── Shared inline style helpers ───────────────────────────────────────────────
+const sCard: React.CSSProperties = {
+  background: '#fff', borderRadius: 18, padding: 20, marginBottom: 14,
+  border: '1px solid #eaecf5', boxShadow: '0 2px 12px rgba(26,35,126,0.06)',
+};
+const sTitle: React.CSSProperties = {
+  fontSize: 14, fontWeight: 900, color: NAVY, marginBottom: 16,
+  fontFamily: "'Heebo', sans-serif",
+};
+const sRow: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  padding: '11px 0', borderBottom: '1px solid #f4f6fb',
+};
+const sLabel: React.CSSProperties = {
+  fontSize: 13, fontWeight: 700, color: '#333', fontFamily: "'Heebo', sans-serif",
+};
+const sSub: React.CSSProperties = {
+  fontSize: 11, color: '#bbb', marginTop: 2, fontFamily: "'Heebo', sans-serif",
+};
+const sInput: React.CSSProperties = {
+  border: '1.5px solid #e0e4f0', borderRadius: 11, padding: '8px 13px',
+  fontSize: 13, fontFamily: "'Heebo', sans-serif", color: '#333', outline: 'none',
+  width: 220, textAlign: 'right',
+};
+const btnNavy: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 7,
+  padding: '10px 18px', borderRadius: 12, border: 'none',
+  fontSize: 13, fontWeight: 700, cursor: 'pointer',
+  background: NAVY, color: '#fff',
+  boxShadow: '0 4px 12px rgba(30,49,102,0.25)',
+  fontFamily: "'Heebo', sans-serif",
+};
+const userRow: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  background: '#f8f9fd', borderRadius: 14, padding: '12px 16px', marginBottom: 8,
+};
+const iconBtnStyle = (bg: string, color: string): React.CSSProperties => ({
+  width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer',
+  background: bg, color, display: 'inline-flex', alignItems: 'center',
+  justifyContent: 'center', fontSize: 13, transition: 'all .2s',
+});
+
 // ─── Nedarim Settings ──────────────────────────────────────────────────────────
 function NedarimSettings() {
   const { settings, updateSettings } = useStore();
@@ -167,56 +205,51 @@ function NedarimSettings() {
   };
 
   return (
-    <Card className="p-6 shadow-soft">
-      <div className="flex items-center gap-2 mb-4">
-        <Landmark className="w-5 h-5 text-accent" />
-        <h3 className="text-lg font-bold">חיבור לנדרים פלוס</h3>
-      </div>
-      <p className="text-sm text-muted-foreground mb-4">
-        הזן את כתובת ה-API של נדרים פלוס וקוד המוסד שלך.
-      </p>
-      <div className="grid grid-cols-1 gap-3 max-w-2xl">
-        <div className="space-y-1.5">
-          <Label>כתובת API של נדרים פלוס</Label>
-          <Input
-            value={apiUrl}
-            onChange={e => setApiUrl(e.target.value)}
-            placeholder="https://matara.pro/nedarimplus/..."
-            dir="ltr"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>קוד מוסד (MosadId)</Label>
-          <Input
-            value={mosadId}
-            onChange={e => setMosadId(e.target.value)}
-            placeholder="לדוגמה: 7011179"
-            dir="ltr"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>קוד מאצ'ינג (MatchId)</Label>
-          <Input
-            value={matchId}
-            onChange={e => setMatchId(e.target.value)}
-            placeholder="מזהה התאמה (אופציונלי)"
-            dir="ltr"
-          />
-          <p className="text-xs text-muted-foreground">קוד מאצ'ינג — נדרש רק לשליפת מגייסים ויעדים.</p>
-        </div>
-        <div className="space-y-1.5">
-          <Label>שם החנות</Label>
-          <Input
+    <div style={sCard}>
+      <div style={sTitle}>🔗 חיבור נדרים פלוס</div>
+      <div style={{ ...sRow, borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+        <div style={{ ...sRow, width: '100%', borderBottom: '1px solid #f4f6fb' }}>
+          <div><div style={sLabel}>שם החנות</div></div>
+          <input
+            style={sInput}
             value={settings.storeName}
             onChange={e => updateSettings({ storeName: e.target.value })}
           />
         </div>
-        <Button onClick={handleSave} disabled={saving} className="gap-2 w-fit">
-          <Save className="w-4 h-4" />
-          {saving ? 'שומר...' : saved ? '✓ נשמר!' : 'שמור הגדרות נדרים פלוס'}
-        </Button>
+        <div style={{ ...sRow, width: '100%', borderBottom: '1px solid #f4f6fb' }}>
+          <div><div style={sLabel}>קוד מוסד</div><div style={sSub}>מזהה הישיבה בנדרים פלוס</div></div>
+          <input
+            style={{ ...sInput, direction: 'ltr' }}
+            value={mosadId}
+            onChange={e => setMosadId(e.target.value)}
+            placeholder="לדוגמה: 7011179"
+          />
+        </div>
+        <div style={{ ...sRow, width: '100%', borderBottom: '1px solid #f4f6fb' }}>
+          <div><div style={sLabel}>כתובת API</div><div style={sSub}>כתובת ה-API של נדרים פלוס</div></div>
+          <input
+            style={{ ...sInput, direction: 'ltr' }}
+            value={apiUrl}
+            onChange={e => setApiUrl(e.target.value)}
+            placeholder="https://matara.pro/nedarimplus/..."
+          />
+        </div>
+        <div style={{ ...sRow, width: '100%', borderBottom: 'none' }}>
+          <div><div style={sLabel}>קוד מאצ'ינג</div><div style={sSub}>נדרש רק לשליפת מגייסים ויעדים. אם אין לך, השאר ריק.</div></div>
+          <input
+            style={{ ...sInput, direction: 'ltr' }}
+            value={matchId}
+            onChange={e => setMatchId(e.target.value)}
+            placeholder="מזהה התאמה (אופציונלי)"
+          />
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <button onClick={handleSave} disabled={saving} style={btnNavy}>
+            💾 {saving ? 'שומר...' : saved ? '✓ נשמר!' : 'שמור הגדרות'}
+          </button>
+        </div>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -243,10 +276,7 @@ function UserDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent dir="rtl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {editUser ? <KeyRound className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
-            {editUser ? 'עריכת משתמש' : 'הוספת משתמש חדש'}
-          </DialogTitle>
+          <DialogTitle>{editUser ? '✏️ עריכת משתמש' : '👤 הוספת משתמש חדש'}</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5">
@@ -276,10 +306,7 @@ function UserDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>ביטול</Button>
-          <Button onClick={handleSave} className="gap-2">
-            <UserPlus className="w-4 h-4" />
-            {editUser ? 'שמור' : 'צור משתמש'}
-          </Button>
+          <Button onClick={handleSave}>{editUser ? 'שמור' : '+ צור משתמש'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -291,82 +318,61 @@ function UsersManagement() {
   const { users, deleteUser, currentUser } = useStore();
   const [dlg, setDlg] = useState<{ open: boolean; edit?: User }>({ open: false });
 
-  const roleBadge = (role: UserRole) => {
-    if (role === 'admin')   return <Badge className="bg-purple-100 text-purple-700 border-0">מנהל ראשי</Badge>;
-    if (role === 'manager') return <Badge className="bg-primary/10 text-primary border-0">מנהל</Badge>;
-    return <Badge className="bg-green-100 text-green-700 border-0">קופה</Badge>;
+  const roleBadge = (role: UserRole): React.CSSProperties => {
+    if (role === 'admin')   return { background: '#f3e5f5', color: '#6a1b9a' };
+    if (role === 'manager') return { background: '#eef0fb', color: NAVY };
+    return { background: '#e8f5e9', color: '#2e7d32' };
   };
+  const roleLabel = (role: UserRole) =>
+    role === 'admin' ? 'מנהל ראשי' : role === 'manager' ? 'מנהל' : 'קופה';
+
+  const badgeStyle = (role: UserRole): React.CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center',
+    padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+    fontFamily: "'Heebo', sans-serif", ...roleBadge(role),
+  });
 
   return (
-    <Card className="p-6 shadow-soft">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Users className="w-5 h-5 text-primary" />
-          <h3 className="text-lg font-bold">ניהול משתמשים</h3>
+    <div style={sCard}>
+      <div style={sTitle}>👥 ניהול משתמשים</div>
+      <div style={{ marginBottom: 14 }}>
+        <button onClick={() => setDlg({ open: true })} style={btnNavy}>
+          + הוסף משתמש
+        </button>
+      </div>
+
+      {users.map(u => {
+        const isMe = u.id === currentUser?.id;
+        return (
+          <div key={u.id} style={userRow}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {!isMe && (
+                <button
+                  onClick={() => { if (window.confirm(`למחוק את ${u.name}?`)) deleteUser(u.id); }}
+                  style={iconBtnStyle('#ffebee', '#e57373')}
+                >🗑</button>
+              )}
+              <button onClick={() => setDlg({ open: true, edit: u })} style={iconBtnStyle('#eef0fb', '#5c6bc0')}>✏️</button>
+            </div>
+            <div style={{ textAlign: 'right', flex: 1, margin: '0 12px' }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: NAVY, fontFamily: "'Heebo', sans-serif" }}>
+                {u.name}{isMe && <span style={{ fontSize: 10, fontWeight: 600, color: TH_COLOR, marginRight: 6 }}>אני</span>}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: TH_COLOR, marginTop: 2, fontFamily: "'Heebo', sans-serif" }}>{u.username}</div>
+            </div>
+            <span style={badgeStyle(u.role)}>{roleLabel(u.role)}</span>
+          </div>
+        );
+      })}
+
+      {users.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '20px 0', color: TH_COLOR, fontSize: 13, fontFamily: "'Heebo', sans-serif" }}>
+          אין משתמשים
         </div>
-        <div />
-      </div>
+      )}
 
-      <div className="mb-5">
-        <Button onClick={() => setDlg({ open: true })} className="gap-2">
-          <UserPlus className="w-4 h-4" /> הוספת משתמש חדש
-        </Button>
-      </div>
-
-      <div className="rounded-xl border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-secondary/60">
-              <TableHead className="text-right">שם</TableHead>
-              <TableHead className="text-right">שם משתמש</TableHead>
-              <TableHead className="text-right">תפקיד</TableHead>
-              <TableHead className="text-right">פעולות</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">אין משתמשים</TableCell>
-              </TableRow>
-            )}
-            {users.map(u => {
-              const isMe = u.id === currentUser?.id;
-              return (
-                <TableRow key={u.id}>
-                  <TableCell className="font-medium">
-                    {u.name}
-                    {isMe && <Badge variant="outline" className="mr-2 text-xs">אני</Badge>}
-                  </TableCell>
-                  <TableCell dir="ltr" className="text-right text-muted-foreground">{u.username}</TableCell>
-                  <TableCell>{roleBadge(u.role)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button size="sm" variant="outline" onClick={() => setDlg({ open: true, edit: u })} className="gap-1.5">
-                        <Pencil className="w-3.5 h-3.5" /> ערוך
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        disabled={isMe}
-                        onClick={() => { if (window.confirm(`למחוק את ${u.name}?`)) deleteUser(u.id); }}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-
-      <UserDialog
-        open={dlg.open}
-        onClose={() => setDlg({ open: false })}
-        editUser={dlg.edit}
-      />
-    </Card>
+      <UserDialog open={dlg.open} onClose={() => setDlg({ open: false })} editUser={dlg.edit} />
+    </div>
   );
 }
 
