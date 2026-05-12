@@ -27,30 +27,16 @@ function HeaderClock() {
   };
 
   return (
-    <div className="flex items-center justify-center gap-3 w-full" dir="rtl">
-      {/* Right: weekday + parasha */}
-      <div className="flex flex-col items-end text-right leading-tight">
-        <span className="text-sm font-bold text-foreground">{formatWeekday(now)}</span>
-        <span className="text-xs font-semibold" style={{ color: 'hsl(var(--accent))' }}>{formatParasha(now)}</span>
-      </div>
-      {/* Center: big clock with gradient text */}
-      <span
-        className="font-mono font-bold tabular-nums text-3xl md:text-4xl tracking-tight px-2"
-        style={{
-          background: 'linear-gradient(to bottom, hsl(var(--primary)), hsl(var(--accent)))',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-        }}
-      >
+    <div style={{ textAlign: 'center' }}>
+      <div style={{
+        fontSize: 30, fontWeight: 900, color: '#1e3166',
+        letterSpacing: 3, fontVariantNumeric: 'tabular-nums', lineHeight: 1,
+        fontFamily: 'monospace',
+      }}>
         {formatTime(now)}
-      </span>
-      {/* Left: Hebrew date + Gregorian */}
-      <div className="flex flex-col items-start text-left leading-tight">
-        <span className="text-sm font-bold" style={{ color: 'hsl(var(--accent))' }}>{formatHebrew(now)}</span>
-        <span className="text-xs font-medium text-muted-foreground">
-          <span dir="ltr">{fmtGregNumeric(now)}</span> · {fmtGregMonthName(now)}
-        </span>
+      </div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#c8890a', marginTop: 3 }}>
+        {formatWeekday(now)} · {formatHebrew(now)}
       </div>
     </div>
   );
@@ -88,36 +74,41 @@ export default function Layout() {
     <div className="h-screen flex flex-col overflow-hidden" dir="rtl">
 
       {/* ── Header ── */}
-      <header className="border-b bg-card/80 backdrop-blur-sm shadow-soft shrink-0 z-40">
-        <div className="w-full px-6 py-3 flex items-center gap-4">
-
-          {/* Right: logo + store name */}
-          <div className="flex items-center gap-3 shrink-0">
-            <img src="/icon.png" alt="לוגו" className="w-11 h-11 rounded-xl shadow-soft" />
-            <div>
-              <h1 className="text-xl font-bold leading-tight">{storeName}</h1>
-              <p className="text-xs text-muted-foreground">
-                {roleLabel} • {currentUser?.name}
-              </p>
-            </div>
+      <header style={{
+        background: '#fff', borderBottom: '1px solid #e4e8f0',
+        padding: '0 24px', height: 70,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        boxShadow: '0 2px 12px rgba(26,35,126,0.07)', flexShrink: 0, zIndex: 40,
+      }}>
+        {/* Right: logo + store name */}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <img src="/icon.png" alt="לוגו" style={{ height: 46, width: 'auto' }} />
+          <div style={{ marginRight: 12 }}>
+            <div style={{ fontSize: 18, fontWeight: 900, color: '#1e3166', letterSpacing: 0.3 }}>{storeName}</div>
+            <div style={{ fontSize: 11, color: '#aaa', fontWeight: 500, marginTop: 2 }}>{roleLabel} · {currentUser?.name}</div>
           </div>
-
-          {/* Center: Hebrew clock */}
-          <div className="flex-1 min-w-0">
-            <HeaderClock />
-          </div>
-
-          {/* Left: logout button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => { setLogoutPwd(''); setLogoutError(''); setLogoutOpen(true); }}
-            className="gap-2 shrink-0"
-          >
-            <LogOut className="w-4 h-4" /> התנתק
-          </Button>
-
         </div>
+
+        {/* Center: clock */}
+        <div style={{ textAlign: 'center' }}>
+          <HeaderClock />
+        </div>
+
+        {/* Left: logout button */}
+        <button
+          onClick={() => { setLogoutPwd(''); setLogoutError(''); setLogoutOpen(true); }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: 13, fontWeight: 700, color: '#666',
+            border: '1.5px solid #e0e4f0', borderRadius: 12,
+            padding: '8px 16px', background: '#fff', cursor: 'pointer',
+            transition: 'all .2s', fontFamily: "'Heebo', sans-serif",
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9fa8da'; (e.currentTarget as HTMLButtonElement).style.color = '#1e3166'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e0e4f0'; (e.currentTarget as HTMLButtonElement).style.color = '#666'; }}
+        >
+          → התנתק
+        </button>
       </header>
 
       {/* ── Logout dialog ── */}
@@ -149,39 +140,45 @@ export default function Layout() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Main content ── */}
-      <main className="px-4 py-4 flex-1 min-h-0 flex flex-col overflow-hidden">
-
-        {/* Tab bar — only for managers/admins */}
-        {canManage && (
-          <div className="grid w-full mx-auto mb-4 h-11 rounded-lg bg-muted p-1 grid-cols-2 max-w-md shrink-0">
-            {tabs.map((tab) => (
+      {/* ── Tabs bar (only for managers/admins) ── */}
+      {canManage && (
+        <div style={{
+          background: '#fff', borderBottom: '1px solid #eaecf5',
+          display: 'flex', justifyContent: 'center', padding: 10, flexShrink: 0,
+        }}>
+          <div style={{ display: 'flex', gap: 4, background: '#eef0f8', borderRadius: 16, padding: 5 }}>
+            {tabs.map(tab => (
               <button
                 key={tab.value}
                 onClick={() => setActiveTab(tab.value)}
-                className={cn(
-                  "inline-flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
-                  activeTab === tab.value
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  padding: '9px 44px', borderRadius: 12, border: 'none',
+                  fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  transition: 'all .2s', fontFamily: "'Heebo', sans-serif",
+                  background: activeTab === tab.value ? '#1e3166' : 'transparent',
+                  color: activeTab === tab.value ? '#fff' : '#9fa8da',
+                  boxShadow: activeTab === tab.value ? '0 4px 14px rgba(30,49,102,0.3)' : 'none',
+                }}
               >
-                <tab.icon className="w-4 h-4" /> {tab.label}
+                {tab.value === 'kupa' ? '🛒' : '⚙️'} {tab.label}
               </button>
             ))}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* All tabs always rendered, hidden via CSS to preserve state */}
-        <div className={cn("flex-1 min-h-0", activeTab === "kupa" ? "flex flex-col" : "hidden")}>
+      {/* ── Main content ── */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <div style={{ display: activeTab === 'kupa' ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}>
           <KupaPage />
         </div>
         {canManage && (
-          <div className={cn("flex-1 min-h-0 overflow-hidden flex", activeTab === "nihul" ? "" : "hidden")}>
+          <div style={{ display: activeTab === 'nihul' ? 'flex' : 'none', flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <NihulPage />
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

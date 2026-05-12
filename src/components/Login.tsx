@@ -29,7 +29,7 @@ export default function Login() {
 
         {/* Logo + title */}
         <div className="flex flex-col items-center gap-3 mb-6">
-          <img src="/icon.png" alt="לוגו" className="w-16 h-16 rounded-2xl shadow-soft" />
+          <img src="/icon.png" alt="לוגו" style={{ height: 90, width: 'auto' }} />
           <div className="text-center">
             <h1 className="text-2xl font-bold">{storeName}</h1>
             <p className="text-sm text-muted-foreground">התחבר כדי להמשיך</p>
