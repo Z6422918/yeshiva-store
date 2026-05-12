@@ -2,23 +2,47 @@ import { useState } from 'react';
 import { useStore } from '../../../store/useStore';
 import {
   Plus, Search, Package, Pencil, Trash2, PackagePlus,
-  ChevronLeft, ChevronDown, Folder,
+  ChevronRight, ChevronDown, Folder, FileDown,
 } from 'lucide-react';
 import type { Product, ProductVariant, Supply, PriceHistoryEntry } from '../../../types';
 import { Card } from '../../ui/card';
-import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import { cn } from '../../../lib/utils';
 
 // ─── Stock badge helper ────────────────────────────────────────────────────────
-function stockBadge(stock: number) {
-  if (stock <= 0) return { label: '0 — אזל', cls: 'bg-red-100 text-red-700 border-red-200' };
-  if (stock < 5)  return { label: `${stock} — נמוך`, cls: 'bg-orange-100 text-orange-700 border-orange-200' };
-  return { label: `${stock}`, cls: 'bg-green-100 text-green-700 border-green-200' };
+function StockBadge({ stock }: { stock: number }) {
+  if (stock <= 0)
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
+        🔴 אזל
+      </span>
+    );
+  if (stock < 5)
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200">
+        🟠 {stock}
+      </span>
+    );
+  return (
+    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
+      🟢 {stock}
+    </span>
+  );
+}
+
+// ─── Category badge color map ──────────────────────────────────────────────────
+const CAT_COLORS: Record<string, string> = {
+  'מוצרי חלב':   'bg-blue-50   text-blue-800   border-blue-200',
+  'לחם ומאפים':  'bg-orange-50  text-orange-800  border-orange-200',
+  'שתייה':       'bg-purple-50  text-purple-800  border-purple-200',
+  'חטיפים':      'bg-yellow-50  text-yellow-800  border-yellow-200',
+  'קפואים':      'bg-cyan-50    text-cyan-800    border-cyan-200',
+};
+function catColor(cat: string) {
+  return CAT_COLORS[cat] ?? 'bg-primary/10 text-primary border-primary/20';
 }
 
 // ─── Add/Edit Product Dialog ───────────────────────────────────────────────────
@@ -32,12 +56,12 @@ interface ProductDialogProps {
 function ProductDialog({ open, onClose, editProduct, onAdded }: ProductDialogProps) {
   const { suppliers, addProduct, updateProduct } = useStore();
   const [form, setForm] = useState({
-    name: editProduct?.name ?? '',
+    name:       editProduct?.name       ?? '',
     supplierId: editProduct?.supplierId ?? '',
-    category: editProduct?.category ?? '',
-    barcode: editProduct?.barcode ?? '',
-    company: editProduct?.company ?? '',
-    isActive: editProduct?.isActive ?? true,
+    category:   editProduct?.category   ?? '',
+    barcode:    editProduct?.barcode    ?? '',
+    company:    editProduct?.company    ?? '',
+    isActive:   editProduct?.isActive   ?? true,
   });
 
   const handleSave = () => {
@@ -51,11 +75,10 @@ function ProductDialog({ open, onClose, editProduct, onAdded }: ProductDialogPro
     onClose();
   };
 
-  const field = (label: string, key: keyof typeof form, type = 'text') => (
+  const field = (label: string, key: keyof typeof form) => (
     <div className="space-y-1">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <Input
-        type={type}
         value={form[key] as string}
         onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
         className="h-9 text-sm"
@@ -65,7 +88,7 @@ function ProductDialog({ open, onClose, editProduct, onAdded }: ProductDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent dir="rtl">
         <DialogHeader>
           <DialogTitle>{editProduct ? 'עריכת מוצר' : 'הוספת מוצר חדש'}</DialogTitle>
         </DialogHeader>
@@ -106,13 +129,13 @@ interface VariantDialogProps {
 function VariantDialog({ open, onClose, productId, editVariant }: VariantDialogProps) {
   const { addVariant, updateVariant } = useStore();
   const [form, setForm] = useState({
-    sizeType: editVariant?.sizeType ?? '',
-    size: editVariant?.size ?? '',
-    details1: editVariant?.details1 ?? '',
-    details2: editVariant?.details2 ?? '',
-    yeshivaPrice: editVariant?.yeshivaPrice ?? 0,
+    sizeType:      editVariant?.sizeType      ?? '',
+    size:          editVariant?.size          ?? '',
+    details1:      editVariant?.details1      ?? '',
+    details2:      editVariant?.details2      ?? '',
+    yeshivaPrice:  editVariant?.yeshivaPrice  ?? 0,
     externalPrice: editVariant?.externalPrice ?? 0,
-    costPrice: editVariant?.costPrice ?? 0,
+    costPrice:     editVariant?.costPrice     ?? 0,
   });
 
   const handleSave = () => {
@@ -126,14 +149,14 @@ function VariantDialog({ open, onClose, productId, editVariant }: VariantDialogP
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent dir="rtl">
         <DialogHeader>
           <DialogTitle>{editVariant ? 'עריכת וריאנט' : 'הוספת וריאנט'}</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { label: 'סוג', key: 'sizeType' },
-            { label: 'מידה', key: 'size' },
+            { label: 'סוג',     key: 'sizeType' },
+            { label: 'מידה',    key: 'size' },
             { label: 'פרטים 1', key: 'details1' },
             { label: 'פרטים 2', key: 'details2' },
           ].map(f => (
@@ -147,9 +170,9 @@ function VariantDialog({ open, onClose, productId, editVariant }: VariantDialogP
             </div>
           ))}
           {[
-            { label: 'מחיר ישיבה ₪', key: 'yeshivaPrice' },
+            { label: 'מחיר ישיבה ₪',  key: 'yeshivaPrice' },
             { label: 'מחיר חיצוני ₪', key: 'externalPrice' },
-            { label: 'מחיר עלות ₪', key: 'costPrice' },
+            { label: 'מחיר עלות ₪',   key: 'costPrice' },
           ].map(f => (
             <div key={f.key} className="space-y-1">
               <Label className="text-xs text-muted-foreground">{f.label}</Label>
@@ -182,7 +205,11 @@ interface SupplyDialogProps {
 
 function SupplyDialog({ open, onClose, productId, variantId }: SupplyDialogProps) {
   const { addSupply } = useStore();
-  const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], quantity: 1, costPerUnit: 0 });
+  const [form, setForm] = useState({
+    date:        new Date().toISOString().split('T')[0],
+    quantity:    1,
+    costPerUnit: 0,
+  });
 
   const handleSave = () => {
     if (form.quantity < 1) return;
@@ -192,22 +219,25 @@ function SupplyDialog({ open, onClose, productId, variantId }: SupplyDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent dir="rtl">
         <DialogHeader>
           <DialogTitle>הספקה חדשה</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">תאריך</Label>
-            <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} className="h-9 text-sm" />
+            <Input type="date" value={form.date}
+              onChange={e => setForm(p => ({ ...p, date: e.target.value }))} className="h-9 text-sm" />
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">כמות</Label>
-            <Input type="number" min={1} value={form.quantity} onChange={e => setForm(p => ({ ...p, quantity: Number(e.target.value) }))} className="h-9 text-sm" />
+            <Input type="number" min={1} value={form.quantity}
+              onChange={e => setForm(p => ({ ...p, quantity: Number(e.target.value) }))} className="h-9 text-sm" />
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">עלות ליחידה ₪</Label>
-            <Input type="number" min={0} value={form.costPerUnit} onChange={e => setForm(p => ({ ...p, costPerUnit: Number(e.target.value) }))} className="h-9 text-sm" />
+            <Input type="number" min={0} value={form.costPerUnit}
+              onChange={e => setForm(p => ({ ...p, costPerUnit: Number(e.target.value) }))} className="h-9 text-sm" />
           </div>
         </div>
         <DialogFooter>
@@ -219,29 +249,28 @@ function SupplyDialog({ open, onClose, productId, variantId }: SupplyDialogProps
   );
 }
 
-// ─── Supply History inline ─────────────────────────────────────────────────────
-function SupplyHistory({ supplies }: { supplies: Supply[] }) {
-  if (supplies.length === 0) {
+// ─── Supply History table ──────────────────────────────────────────────────────
+function SupplyHistoryTable({ supplies }: { supplies: Supply[] }) {
+  if (supplies.length === 0)
     return <p className="text-xs text-muted-foreground py-2 text-center">אין היסטוריית הספקות</p>;
-  }
   return (
-    <div className="rounded-lg border border-border/50 overflow-hidden mt-1">
+    <div className="rounded-lg border border-border/50 overflow-hidden">
       <table className="w-full text-xs">
         <thead>
-          <tr className="bg-muted/40">
-            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">תאריך</th>
-            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">כמות</th>
-            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">עלות ליחידה</th>
-            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">סה"כ</th>
+          <tr className="bg-[#f8f9fd]">
+            <th className="text-right px-3 py-2 font-bold text-[#9fa8da]">תאריך</th>
+            <th className="text-right px-3 py-2 font-bold text-[#9fa8da]">כמות</th>
+            <th className="text-right px-3 py-2 font-bold text-[#9fa8da]">עלות ליחידה</th>
+            <th className="text-right px-3 py-2 font-bold text-[#9fa8da]">סה"כ</th>
           </tr>
         </thead>
         <tbody>
           {[...supplies].reverse().map(s => (
-            <tr key={s.id} className="border-t border-border/30">
+            <tr key={s.id} className="border-t border-border/30 hover:bg-muted/30">
               <td className="px-3 py-1.5">{s.date}</td>
-              <td className="px-3 py-1.5">{s.quantity}</td>
+              <td className="px-3 py-1.5 font-bold">{s.quantity}</td>
               <td className="px-3 py-1.5">₪{s.costPerUnit.toFixed(2)}</td>
-              <td className="px-3 py-1.5 font-semibold text-primary">₪{(s.quantity * s.costPerUnit).toFixed(2)}</td>
+              <td className="px-3 py-1.5 font-bold text-primary">₪{(s.quantity * s.costPerUnit).toFixed(2)}</td>
             </tr>
           ))}
         </tbody>
@@ -250,27 +279,22 @@ function SupplyHistory({ supplies }: { supplies: Supply[] }) {
   );
 }
 
-// ─── Price History inline ──────────────────────────────────────────────────────
+// ─── Price History table ───────────────────────────────────────────────────────
 function PriceHistoryTable({ priceHistory }: { priceHistory: PriceHistoryEntry[] }) {
   if (priceHistory.length === 0) return null;
   return (
-    <div className="rounded-lg border border-border/50 overflow-hidden mt-1">
+    <div className="rounded-lg border border-border/50 overflow-hidden">
       <table className="w-full text-xs">
         <thead>
-          <tr className="bg-muted/40">
-            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">מתאריך</th>
-            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">עד תאריך</th>
-            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">מחיר ישיבה</th>
-            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">מחיר חיצוני</th>
-            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">עלות</th>
-            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">נמכרו</th>
-            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">הכנסה</th>
-            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">רווח</th>
+          <tr className="bg-[#f8f9fd]">
+            {['מתאריך','עד תאריך','מחיר ישיבה','מחיר חיצוני','עלות','נמכרו','הכנסה','רווח'].map(h => (
+              <th key={h} className="text-right px-3 py-2 font-bold text-[#9fa8da]">{h}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {[...priceHistory].reverse().map(h => (
-            <tr key={h.id} className="border-t border-border/30">
+            <tr key={h.id} className="border-t border-border/30 hover:bg-muted/30">
               <td className="px-3 py-1.5">{h.fromDate}</td>
               <td className="px-3 py-1.5">{h.toDate ?? <span className="text-green-600 font-semibold">נוכחי</span>}</td>
               <td className="px-3 py-1.5 font-semibold text-primary">₪{h.yeshivaPrice.toFixed(2)}</td>
@@ -287,47 +311,32 @@ function PriceHistoryTable({ priceHistory }: { priceHistory: PriceHistoryEntry[]
   );
 }
 
-// ─── Category Card ─────────────────────────────────────────────────────────────
-function CategoryCard({ cat, count, onClick }: { cat: string; count: number; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 transition-smooth text-center cursor-pointer w-full"
-    >
-      <Folder size={32} className="text-primary/60" />
-      <div className="font-bold text-primary text-sm">{cat}</div>
-      <div className="text-xs text-muted-foreground">{count} מוצרים</div>
-    </button>
-  );
-}
-
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function MitzraimPage() {
   const { products, suppliers, deleteProduct, deleteVariant } = useStore();
 
-  const [search, setSearch] = useState('');
-  const [view, setView] = useState<'table' | 'cat'>('table');
+  const [search,       setSearch]       = useState('');
+  const [view,         setView]         = useState<'table' | 'cat'>('table');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   // Dialogs
   const [productDlg, setProductDlg] = useState<{ open: boolean; edit?: Product }>({ open: false });
   const [variantDlg, setVariantDlg] = useState<{ open: boolean; productId: string; edit?: ProductVariant } | null>(null);
-  const [supplyDlg, setSupplyDlg] = useState<{ open: boolean; productId: string; variantId: string } | null>(null);
+  const [supplyDlg,  setSupplyDlg]  = useState<{ open: boolean; productId: string; variantId: string } | null>(null);
 
   const filtered = products.filter(p => {
     const q = search.toLowerCase();
     if (!q) return true;
-    const supplierName = suppliers.find(s => s.id === p.supplierId)?.name ?? '';
+    const sup = suppliers.find(s => s.id === p.supplierId)?.name ?? '';
     return (
-      p.name.includes(q) ||
-      p.barcode.includes(q) ||
+      p.name.includes(q) || p.barcode.includes(q) ||
       p.company.toLowerCase().includes(q) ||
       p.category.toLowerCase().includes(q) ||
-      supplierName.toLowerCase().includes(q)
+      sup.toLowerCase().includes(q)
     );
   });
 
-  // Flatten rows: each variant = one row; product with no variants = one row
+  // Flatten: each variant = one row; no-variant product = one row
   type FlatRow = { product: Product; variant: ProductVariant | null; rowKey: string; isFirst: boolean };
   const rows: FlatRow[] = filtered.flatMap((p): FlatRow[] =>
     p.variants.length === 0
@@ -337,63 +346,59 @@ export default function MitzraimPage() {
 
   const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
 
-  const toggleExpand = (key: string) => {
+  const toggleExpand = (key: string) =>
     setExpandedRows(prev => {
       const next = new Set(prev);
       next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
-  };
-
-  const tabs = [
-    { id: 'table' as const, label: 'טבלה מלאה' },
-    { id: 'cat' as const, label: 'תצוגת קטגוריות' },
-  ];
 
   return (
-    <div className="space-y-5" dir="rtl">
+    <div className="space-y-4" dir="rtl">
 
       {/* ── Action bar ── */}
       <div className="flex items-center gap-2 flex-wrap">
         <Button
           onClick={() => setProductDlg({ open: true })}
-          className="gradient-primary shadow-soft gap-2 font-bold"
+          className="gap-2 font-bold bg-[#1e3166] hover:bg-[#162550] text-white shadow-md"
         >
-          <Plus size={15} />
-          הוסף מוצר
+          <Plus size={14} /> הוסף מוצר
         </Button>
-        <Button variant="outline" className="gap-2 text-primary border-primary/30">
-          <Package size={15} />
-          ספקים וקטגוריות
+        <Button variant="outline" className="gap-2 text-[#5c6bc0] border-[#d5d9ef] hover:bg-[#f0f2fa]">
+          <Package size={14} /> ספקים וקטגוריות
         </Button>
-        <div className="flex-1 relative min-w-56">
-          <Search size={14} className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <Button variant="outline" className="gap-2 text-[#5c6bc0] border-[#d5d9ef] hover:bg-[#f0f2fa]">
+          <FileDown size={14} /> ייבוא / ייצוא
+        </Button>
+        <div className="flex-1 relative min-w-56 mr-auto">
+          <Search size={13} className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="חיפוש לפי ברקוד, שם, ספק, קטגוריה..."
+            placeholder="🔍  חיפוש לפי ברקוד, שם, ספק, סוג, מידה..."
             className="pr-9 text-sm"
           />
         </div>
-        <span className="text-xs text-muted-foreground font-medium">
-          {filtered.length} מוצרים
-        </span>
+        <span className="text-xs text-muted-foreground font-semibold">{filtered.length} מוצרים</span>
       </div>
 
       {/* ── Main Card ── */}
-      <Card className="shadow-soft overflow-hidden">
+      <div className="bg-white rounded-[20px] shadow-md border border-[#eaecf5] overflow-hidden">
 
-        {/* Sub-tabs */}
-        <div className="flex border-b border-border">
-          {tabs.map(t => (
+        {/* Sub-tabs — order: קטגוריות | טבלה (exactly as reference) */}
+        <div className="flex border-b-2 border-[#eaecf5] px-5">
+          {([
+            { id: 'cat'   as const, label: 'תצוגת קטגוריות' },
+            { id: 'table' as const, label: 'טבלה מלאה' },
+          ]).map(t => (
             <button
               key={t.id}
               onClick={() => setView(t.id)}
               className={cn(
-                'px-6 py-3.5 text-sm font-bold transition-smooth border-b-2 -mb-px',
+                'px-5 py-3.5 text-[13px] font-bold border-b-[3px] -mb-px transition-all',
                 view === t.id
-                  ? 'text-primary border-primary'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
+                  ? 'text-[#1e3166] border-[#1e3166]'
+                  : 'text-[#aab] border-transparent hover:text-[#5c6bc0]'
               )}
             >
               {t.label}
@@ -401,7 +406,7 @@ export default function MitzraimPage() {
           ))}
         </div>
 
-        {/* ── Table View ── */}
+        {/* ══ TABLE VIEW ══ */}
         {view === 'table' && (
           rows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
@@ -409,203 +414,197 @@ export default function MitzraimPage() {
               <p className="text-sm font-semibold">אין מוצרים להצגה</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="w-8" />
-                  <TableHead className="text-xs font-bold text-muted-foreground">ברקוד</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">קטגוריה</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">ספק</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">חברה</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">שם</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">סוג</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">מידה</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">פרטים 1</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">פרטים 2</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">מלאי</TableHead>
-                  <TableHead className="text-xs font-bold text-muted-foreground">פעולות</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map(({ product: p, variant: v, rowKey, isFirst }) => {
-                  const supplier = suppliers.find(s => s.id === p.supplierId);
-                  const badge = v ? stockBadge(v.currentStock) : null;
-                  const isExpanded = expandedRows.has(rowKey);
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-[#f8f9fd]">
+                    <th className="w-9 px-3 py-3 border-b border-[#eaecf5]" />
+                    {['ברקוד','קטגוריה','ספק','חברה','שם','סוג','מידה','פרטים 1','פרטים 2','מלאי','פעולות'].map(h => (
+                      <th key={h} className="text-right px-3 py-3 text-[11px] font-[800] text-[#9fa8da] border-b border-[#eaecf5] whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(({ product: p, variant: v, rowKey, isFirst }) => {
+                    const supplier   = suppliers.find(s => s.id === p.supplierId);
+                    const isExpanded = expandedRows.has(rowKey);
 
-                  return (
-                    <>
-                      <TableRow
-                        key={rowKey}
-                        className="group text-sm"
-                      >
-                        {/* Expand toggle */}
-                        <TableCell className="py-2 px-2 w-8">
-                          {v && (
-                            <button
-                              onClick={() => toggleExpand(rowKey)}
-                              className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:bg-muted transition-smooth"
-                            >
-                              {isExpanded
-                                ? <ChevronDown size={13} />
-                                : <ChevronLeft size={13} />
-                              }
-                            </button>
-                          )}
-                        </TableCell>
-
-                        <TableCell className="py-2 font-mono text-xs font-bold text-primary">
-                          {p.barcode || <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-
-                        <TableCell className="py-2">
-                          {p.category
-                            ? <Badge className="bg-primary/10 text-primary border-0 text-xs">{p.category}</Badge>
-                            : <span className="text-muted-foreground text-xs">—</span>
-                          }
-                        </TableCell>
-
-                        <TableCell className="py-2 text-sm">
-                          {supplier?.name || <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-
-                        <TableCell className="py-2 text-sm">
-                          {p.company || <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-
-                        <TableCell className="py-2 font-bold text-primary text-sm">{p.name}</TableCell>
-
-                        <TableCell className="py-2 text-sm">
-                          {v?.sizeType || <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-
-                        <TableCell className="py-2 text-sm">
-                          {v?.size || <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-
-                        <TableCell className="py-2 text-sm">
-                          {v?.details1 || <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-
-                        <TableCell className="py-2 text-sm">
-                          {v?.details2 || <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-
-                        <TableCell className="py-2">
-                          {badge
-                            ? (
-                              <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border', badge.cls)}>
-                                {badge.label}
-                              </span>
-                            )
-                            : <span className="text-muted-foreground text-xs">—</span>
-                          }
-                        </TableCell>
-
-                        <TableCell className="py-2">
-                          <div className="flex items-center gap-1">
-                            {isFirst && (
-                              <button
-                                title="הוסף וריאנט"
-                                onClick={() => setVariantDlg({ open: true, productId: p.id })}
-                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-smooth"
-                              >
-                                <Plus size={13} />
-                              </button>
-                            )}
+                    return (
+                      <>
+                        <tr
+                          key={rowKey}
+                          className="border-b border-[#f4f6fb] hover:bg-[#fafbff] transition-colors"
+                        >
+                          {/* ── Expand button ── */}
+                          <td className="px-3 py-2.5 w-9 text-center">
                             {v && (
                               <button
-                                title="הספקה"
-                                onClick={() => setSupplyDlg({ open: true, productId: p.id, variantId: v.id })}
-                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-smooth"
+                                onClick={() => toggleExpand(rowKey)}
+                                className="w-6 h-6 flex items-center justify-center rounded text-[#9fa8da] hover:text-[#1e3166] hover:bg-[#eef0fb] transition-all mx-auto"
+                                title={isExpanded ? 'סגור' : 'הרחב'}
                               >
-                                <PackagePlus size={13} />
+                                {isExpanded
+                                  ? <ChevronDown  size={14} />
+                                  : <ChevronRight size={14} />
+                                }
                               </button>
                             )}
-                            <button
-                              title="ערוך"
-                              onClick={() => setProductDlg({ open: true, edit: p })}
-                              className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-smooth"
-                            >
-                              <Pencil size={13} />
-                            </button>
-                            {v ? (
+                          </td>
+
+                          {/* ── Barcode ── */}
+                          <td className="px-3 py-2.5 font-mono text-[13px] font-bold text-[#5c6bc0]">
+                            {p.barcode || <span className="text-[#ccc]">—</span>}
+                          </td>
+
+                          {/* ── Category ── */}
+                          <td className="px-3 py-2.5">
+                            {p.category
+                              ? <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border', catColor(p.category))}>{p.category}</span>
+                              : <span className="text-[#ccc]">—</span>
+                            }
+                          </td>
+
+                          {/* ── Supplier ── */}
+                          <td className="px-3 py-2.5 text-[13px] font-[500]">
+                            {supplier?.name || <span className="text-[#ccc]">—</span>}
+                          </td>
+
+                          {/* ── Company ── */}
+                          <td className="px-3 py-2.5 text-[13px] font-[500]">
+                            {p.company || <span className="text-[#ccc]">—</span>}
+                          </td>
+
+                          {/* ── Product name ── */}
+                          <td className="px-3 py-2.5 text-[13px] font-[800] text-[#1e3166]">
+                            {p.name}
+                          </td>
+
+                          {/* ── sizeType ── */}
+                          <td className="px-3 py-2.5 text-[13px] font-[500]">
+                            {v?.sizeType || <span className="text-[#ccc]">—</span>}
+                          </td>
+
+                          {/* ── size ── */}
+                          <td className="px-3 py-2.5 text-[13px] font-[500]">
+                            {v?.size || <span className="text-[#ccc]">—</span>}
+                          </td>
+
+                          {/* ── details1 ── */}
+                          <td className="px-3 py-2.5 text-[13px] font-[500]">
+                            {v?.details1 || <span className="text-[#ccc]">—</span>}
+                          </td>
+
+                          {/* ── details2 ── */}
+                          <td className="px-3 py-2.5 text-[13px] font-[500]">
+                            {v?.details2 || <span className="text-[#ccc]">—</span>}
+                          </td>
+
+                          {/* ── Stock ── */}
+                          <td className="px-3 py-2.5">
+                            {v
+                              ? <StockBadge stock={v.currentStock} />
+                              : <span className="text-[#ccc] text-[13px]">—</span>
+                            }
+                          </td>
+
+                          {/* ── Actions: del | edit | supply | (+variant for first row) ── */}
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-1.5">
+                              {/* delete */}
                               <button
-                                title="מחק וריאנט"
-                                onClick={() => { if (window.confirm('למחוק וריאנט זה?')) deleteVariant(p.id, v.id); }}
-                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-smooth"
+                                title={v ? 'מחק וריאנט' : 'מחק מוצר'}
+                                onClick={() => {
+                                  if (v) { if (window.confirm('למחוק וריאנט זה?'))  deleteVariant(p.id, v.id); }
+                                  else   { if (window.confirm('למחוק מוצר זה?'))    deleteProduct(p.id); }
+                                }}
+                                className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center bg-[#ffebee] text-[#e57373] hover:bg-[#ffcdd2] hover:text-[#c62828] transition-all"
                               >
                                 <Trash2 size={13} />
                               </button>
-                            ) : (
+                              {/* edit product */}
                               <button
-                                title="מחק מוצר"
-                                onClick={() => { if (window.confirm('למחוק מוצר זה?')) deleteProduct(p.id); }}
-                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-smooth"
+                                title="ערוך מוצר"
+                                onClick={() => setProductDlg({ open: true, edit: p })}
+                                className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center bg-[#eef0fb] text-[#5c6bc0] hover:bg-[#d5d9ef] hover:text-[#1e3166] transition-all"
                               >
-                                <Trash2 size={13} />
+                                <Pencil size={13} />
                               </button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-
-                      {/* Expanded supply history */}
-                      {isExpanded && v && (
-                        <TableRow key={`${rowKey}__expanded`}>
-                          <TableCell colSpan={12} className="bg-blue-50/40 px-6 py-4">
-                            <div className="space-y-4">
-
-                              {/* ── Info boxes ── */}
-                              <div className="grid grid-cols-5 gap-3">
-                                <div className="bg-white rounded-xl border p-3 text-center shadow-sm">
-                                  <div className="text-xs text-muted-foreground font-semibold mb-1">מחיר ישיבה</div>
-                                  <div className="text-lg font-black text-primary">₪{v.yeshivaPrice.toFixed(2)}</div>
-                                </div>
-                                <div className="bg-white rounded-xl border p-3 text-center shadow-sm">
-                                  <div className="text-xs text-muted-foreground font-semibold mb-1">מחיר חיצוני</div>
-                                  <div className="text-lg font-black text-blue-600">₪{v.externalPrice.toFixed(2)}</div>
-                                </div>
-                                <div className="bg-white rounded-xl border p-3 text-center shadow-sm">
-                                  <div className="text-xs text-muted-foreground font-semibold mb-1">מחיר עלות</div>
-                                  <div className="text-lg font-black text-orange-600">₪{v.costPrice.toFixed(2)}</div>
-                                </div>
-                                <div className="bg-white rounded-xl border p-3 text-center shadow-sm">
-                                  <div className="text-xs text-muted-foreground font-semibold mb-1">מלאי נוכחי</div>
-                                  <div className="text-lg font-black text-green-600">{v.currentStock}</div>
-                                </div>
-                                <div className="bg-white rounded-xl border p-3 text-center shadow-sm">
-                                  <div className="text-xs text-muted-foreground font-semibold mb-1">נמכר סה"כ</div>
-                                  <div className="text-lg font-black text-purple-600">{v.totalSold}</div>
-                                </div>
-                              </div>
-
-                              {/* ── Supply history ── */}
-                              <div>
-                                <div className="text-xs font-bold text-muted-foreground mb-2">📦 היסטוריית הספקות</div>
-                                <SupplyHistory supplies={v.supplies} />
-                              </div>
-
-                              {/* ── Price history ── */}
-                              {v.priceHistory.length > 0 && (
-                                <div>
-                                  <div className="text-xs font-bold text-muted-foreground mb-2">💰 היסטוריית מחירים</div>
-                                  <PriceHistoryTable priceHistory={v.priceHistory} />
-                                </div>
+                              {/* supply — only when variant exists */}
+                              {v && (
+                                <button
+                                  title="הספקה"
+                                  onClick={() => setSupplyDlg({ open: true, productId: p.id, variantId: v.id })}
+                                  className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center bg-[#e8f5e9] text-[#66bb6a] hover:bg-[#c8e6c9] hover:text-[#2e7d32] transition-all"
+                                >
+                                  <PackagePlus size={13} />
+                                </button>
                               )}
-
+                              {/* add variant — only on first row */}
+                              {isFirst && (
+                                <button
+                                  title="הוסף וריאנט"
+                                  onClick={() => setVariantDlg({ open: true, productId: p.id })}
+                                  className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center bg-blue-50 text-blue-500 hover:bg-blue-100 hover:text-blue-700 transition-all"
+                                >
+                                  <Plus size={13} />
+                                </button>
+                              )}
                             </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                          </td>
+                        </tr>
+
+                        {/* ── Expanded panel ── */}
+                        {isExpanded && v && (
+                          <tr key={`${rowKey}__exp`} className="bg-[#f0f4ff]">
+                            <td colSpan={12} className="px-6 py-4">
+                              <div className="space-y-4">
+
+                                {/* Info boxes */}
+                                <div className="grid grid-cols-5 gap-3">
+                                  {[
+                                    { label: 'מחיר ישיבה',  val: `₪${v.yeshivaPrice.toFixed(2)}`,  cls: 'text-[#1e3166]' },
+                                    { label: 'מחיר חיצוני', val: `₪${v.externalPrice.toFixed(2)}`, cls: 'text-blue-600' },
+                                    { label: 'מחיר עלות',   val: `₪${v.costPrice.toFixed(2)}`,     cls: 'text-orange-600' },
+                                    { label: 'מלאי נוכחי',  val: String(v.currentStock),           cls: 'text-green-600' },
+                                    { label: 'נמכר סה"כ',   val: String(v.totalSold),              cls: 'text-purple-600' },
+                                  ].map(box => (
+                                    <div key={box.label} className="bg-white rounded-xl border border-[#eaecf5] p-3 text-center shadow-sm">
+                                      <div className="text-[11px] text-[#9fa8da] font-bold mb-1">{box.label}</div>
+                                      <div className={cn('text-[18px] font-[900] leading-tight', box.cls)}>{box.val}</div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Supply history */}
+                                <div>
+                                  <div className="text-[11px] font-bold text-[#9fa8da] mb-2 tracking-wide">📦 היסטוריית הספקות</div>
+                                  <SupplyHistoryTable supplies={v.supplies} />
+                                </div>
+
+                                {/* Price history */}
+                                {v.priceHistory.length > 0 && (
+                                  <div>
+                                    <div className="text-[11px] font-bold text-[#9fa8da] mb-2 tracking-wide">💰 היסטוריית מחירים</div>
+                                    <PriceHistoryTable priceHistory={v.priceHistory} />
+                                  </div>
+                                )}
+
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )
         )}
 
-        {/* ── Category View ── */}
+        {/* ══ CATEGORY VIEW ══ */}
         {view === 'cat' && (
           <div className="p-6">
             {categories.length === 0 ? (
@@ -616,18 +615,24 @@ export default function MitzraimPage() {
             ) : (
               <div className="grid grid-cols-3 gap-4">
                 {categories.map(cat => (
-                  <CategoryCard
+                  <button
                     key={cat}
-                    cat={cat}
-                    count={products.filter(p => p.category === cat).length}
                     onClick={() => { setView('table'); setSearch(cat); }}
-                  />
+                    className="flex flex-col items-center justify-center gap-2 p-6 rounded-[16px] border-[1.5px] border-[#c5cae9] bg-[#f0f4ff] hover:bg-[#e8ecff] transition-all text-center cursor-pointer"
+                  >
+                    <Folder size={28} className="text-[#5c6bc0]" />
+                    <div className="font-[800] text-[#1e3166] text-[14px]">{cat}</div>
+                    <div className="text-[12px] text-[#9fa8da]">
+                      {products.filter(p => p.category === cat).length} מוצרים
+                    </div>
+                  </button>
                 ))}
               </div>
             )}
           </div>
         )}
-      </Card>
+
+      </div>{/* end main card */}
 
       {/* ── Dialogs ── */}
       <ProductDialog
@@ -654,6 +659,7 @@ export default function MitzraimPage() {
           variantId={supplyDlg.variantId}
         />
       )}
+
     </div>
   );
 }
