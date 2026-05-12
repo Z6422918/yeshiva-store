@@ -26,9 +26,10 @@ interface ProductDialogProps {
   open: boolean;
   onClose: () => void;
   editProduct?: Product;
+  onAdded?: (productId: string) => void;
 }
 
-function ProductDialog({ open, onClose, editProduct }: ProductDialogProps) {
+function ProductDialog({ open, onClose, editProduct, onAdded }: ProductDialogProps) {
   const { suppliers, addProduct, updateProduct } = useStore();
   const [form, setForm] = useState({
     name: editProduct?.name ?? '',
@@ -44,7 +45,8 @@ function ProductDialog({ open, onClose, editProduct }: ProductDialogProps) {
     if (editProduct) {
       updateProduct(editProduct.id, form);
     } else {
-      addProduct({ ...form, variants: [] });
+      const id = addProduct({ ...form, variants: [] });
+      onAdded?.(id);
     }
     onClose();
   };
@@ -288,11 +290,11 @@ export default function MitzraimPage() {
   });
 
   // Flatten rows: each variant = one row; product with no variants = one row
-  type FlatRow = { product: Product; variant: ProductVariant | null; rowKey: string };
+  type FlatRow = { product: Product; variant: ProductVariant | null; rowKey: string; isFirst: boolean };
   const rows: FlatRow[] = filtered.flatMap((p): FlatRow[] =>
     p.variants.length === 0
-      ? [{ product: p, variant: null, rowKey: `${p.id}__none` }]
-      : p.variants.map(v => ({ product: p, variant: v, rowKey: `${p.id}__${v.id}` }))
+      ? [{ product: p, variant: null, rowKey: `${p.id}__none`, isFirst: true }]
+      : p.variants.map((v, idx) => ({ product: p, variant: v, rowKey: `${p.id}__${v.id}`, isFirst: idx === 0 }))
   );
 
   const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
@@ -386,7 +388,7 @@ export default function MitzraimPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map(({ product: p, variant: v, rowKey }) => {
+                {rows.map(({ product: p, variant: v, rowKey, isFirst }) => {
                   const supplier = suppliers.find(s => s.id === p.supplierId);
                   const badge = v ? stockBadge(v.currentStock) : null;
                   const isExpanded = expandedRows.has(rowKey);
@@ -458,6 +460,15 @@ export default function MitzraimPage() {
 
                         <TableCell className="py-2">
                           <div className="flex items-center gap-1">
+                            {isFirst && (
+                              <button
+                                title="הוסף וריאנט"
+                                onClick={() => setVariantDlg({ open: true, productId: p.id })}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-smooth"
+                              >
+                                <Plus size={13} />
+                              </button>
+                            )}
                             {v && (
                               <button
                                 title="הספקה"
@@ -541,6 +552,7 @@ export default function MitzraimPage() {
         open={productDlg.open}
         onClose={() => setProductDlg({ open: false })}
         editProduct={productDlg.edit}
+        onAdded={(id) => setVariantDlg({ open: true, productId: id })}
       />
 
       {variantDlg && (

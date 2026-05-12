@@ -10,8 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import type { SpecialApproval } from '../../../types';
 
-const fmtDate = (d: string) => new Date(d).toLocaleString('he-IL');
-const fmtMoney = (n: number) => `₪${n.toFixed(2)}`;
+const fmtDate = (d: string) => { try { return new Date(d).toLocaleString('he-IL'); } catch { return d; } };
+const fmtMoney = (n: number | undefined | null) => `₪${(n ?? 0).toFixed(2)}`;
 
 export default function SpecialApprovals() {
   const {
@@ -21,7 +21,7 @@ export default function SpecialApprovals() {
   } = useStore();
 
   // Code management (loaded from settings)
-  const [specialCode, setSpecialCode] = useState(settings.specialApprovalCode ?? '1234');
+  const [specialCode, setSpecialCode] = useState(settings?.specialApprovalCode ?? '1234');
 
   // Approve dialog
   const [approveDialog, setApproveDialog] = useState<SpecialApproval | null>(null);
@@ -47,18 +47,18 @@ export default function SpecialApprovals() {
     updateApprovalStatus(approval.id, 'rejected');
   };
 
-  const pending = [...specialApprovals]
+  const pending = [...(specialApprovals ?? [])]
     .filter(a => a.status === 'pending')
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 
-  const resolved = [...specialApprovals]
+  const resolved = [...(specialApprovals ?? [])]
     .filter(a => a.status !== 'pending')
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 
   // Special transactions awaiting classification (not yet moved to cash/credit)
-  const specialTxs = [...transactions]
+  const specialTxs = [...(transactions ?? [])]
     .filter(t => t.paymentMethod === 'special')
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 
   return (
     <div className="space-y-6">
