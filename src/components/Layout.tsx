@@ -25,30 +25,22 @@ function HeaderClock() {
     return months[d.getMonth()];
   };
 
-  const hebrewFont: React.CSSProperties = { fontFamily: "'Heebo', sans-serif" };
-
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-      {/* Right side: weekday + parasha */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.3 }}>
-        <span style={{ ...hebrewFont, fontSize: 13, fontWeight: 700, color: '#1a1a2e' }}>{formatWeekday(now)}</span>
-        <span style={{ ...hebrewFont, fontSize: 11, fontWeight: 600, color: '#c8890a' }}>{formatParasha(now)}</span>
+    <div className="flex items-center justify-center gap-3 w-full" dir="rtl">
+      {/* ימין: יום + פרשה */}
+      <div className="flex flex-col items-end text-right leading-tight">
+        <span className="text-sm font-bold text-foreground whitespace-nowrap">{formatWeekday(now)}</span>
+        <span className="text-xs text-accent font-semibold whitespace-nowrap">{formatParasha(now)}</span>
       </div>
-      {/* Center: big time with gradient */}
-      <span style={{
-        ...hebrewFont,
-        fontSize: 30, fontWeight: 900, letterSpacing: 3,
-        fontVariantNumeric: 'tabular-nums', lineHeight: 1, padding: '0 8px',
-        background: 'linear-gradient(to bottom, #1e3166, #c8890a)',
-        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-      }}>
+      {/* שעון גדול */}
+      <span className="font-mono font-bold tabular-nums text-3xl tracking-tight bg-gradient-to-b from-primary to-accent bg-clip-text text-transparent px-2">
         {formatTime(now)}
       </span>
-      {/* Left side: Hebrew date + Gregorian */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.3 }}>
-        <span style={{ ...hebrewFont, fontSize: 13, fontWeight: 700, color: '#c8890a' }}>{formatHebrew(now)}</span>
-        <span style={{ ...hebrewFont, fontSize: 11, fontWeight: 500, color: '#aaa' }}>
-          {fmtGregMonthName(now)} · {fmtGregNumeric(now)}
+      {/* שמאל: תאריך עברי + לועזי */}
+      <div className="flex flex-col items-start text-left leading-tight">
+        <span className="text-sm font-bold text-accent whitespace-nowrap">{formatHebrew(now)}</span>
+        <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+          <span dir="ltr">{fmtGregNumeric(now)}</span> · {fmtGregMonthName(now)}
         </span>
       </div>
     </div>
