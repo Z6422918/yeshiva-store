@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { ShoppingCart, Settings, Store, LogOut } from 'lucide-react';
+import { ShoppingCart, Settings, LogOut } from 'lucide-react';
 import KupaPage from './kupa/KupaPage';
 import NihulPage from './nihul/NihulPage';
 import { cn } from '../lib/utils';
@@ -93,9 +93,7 @@ export default function Layout() {
 
           {/* Right: logo + store name */}
           <div className="flex items-center gap-3 shrink-0">
-            <div className="w-11 h-11 rounded-xl gradient-primary flex items-center justify-center shadow-soft">
-              <Store className="w-6 h-6 text-primary-foreground" />
-            </div>
+            <img src="/icon.png" alt="לוגו" className="w-11 h-11 rounded-xl shadow-soft" />
             <div>
               <h1 className="text-xl font-bold leading-tight">{storeName}</h1>
               <p className="text-xs text-muted-foreground">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { Store } from 'lucide-react';
+
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -29,9 +29,7 @@ export default function Login() {
 
         {/* Logo + title */}
         <div className="flex flex-col items-center gap-3 mb-6">
-          <div className="w-14 h-14 rounded-2xl gradient-primary flex items-center justify-center shadow-soft">
-            <Store className="w-7 h-7 text-primary-foreground" />
-          </div>
+          <img src="/icon.png" alt="לוגו" className="w-16 h-16 rounded-2xl shadow-soft" />
           <div className="text-center">
             <h1 className="text-2xl font-bold">{storeName}</h1>
             <p className="text-sm text-muted-foreground">התחבר כדי להמשיך</p>
