@@ -4,7 +4,7 @@ import {
   Plus, Search, Package, Pencil, Trash2, PackagePlus,
   ChevronLeft, ChevronDown, Folder,
 } from 'lucide-react';
-import type { Product, ProductVariant, Supply } from '../../../types';
+import type { Product, ProductVariant, Supply, PriceHistoryEntry } from '../../../types';
 import { Card } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -132,7 +132,8 @@ function VariantDialog({ open, onClose, productId, editVariant }: VariantDialogP
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { label: 'סוג / מידה', key: 'sizeType' },
+            { label: 'סוג', key: 'sizeType' },
+            { label: 'מידה', key: 'size' },
             { label: 'פרטים 1', key: 'details1' },
             { label: 'פרטים 2', key: 'details2' },
           ].map(f => (
@@ -241,6 +242,43 @@ function SupplyHistory({ supplies }: { supplies: Supply[] }) {
               <td className="px-3 py-1.5">{s.quantity}</td>
               <td className="px-3 py-1.5">₪{s.costPerUnit.toFixed(2)}</td>
               <td className="px-3 py-1.5 font-semibold text-primary">₪{(s.quantity * s.costPerUnit).toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── Price History inline ──────────────────────────────────────────────────────
+function PriceHistoryTable({ priceHistory }: { priceHistory: PriceHistoryEntry[] }) {
+  if (priceHistory.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-border/50 overflow-hidden mt-1">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="bg-muted/40">
+            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">מתאריך</th>
+            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">עד תאריך</th>
+            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">מחיר ישיבה</th>
+            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">מחיר חיצוני</th>
+            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">עלות</th>
+            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">נמכרו</th>
+            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">הכנסה</th>
+            <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">רווח</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...priceHistory].reverse().map(h => (
+            <tr key={h.id} className="border-t border-border/30">
+              <td className="px-3 py-1.5">{h.fromDate}</td>
+              <td className="px-3 py-1.5">{h.toDate ?? <span className="text-green-600 font-semibold">נוכחי</span>}</td>
+              <td className="px-3 py-1.5 font-semibold text-primary">₪{h.yeshivaPrice.toFixed(2)}</td>
+              <td className="px-3 py-1.5">₪{h.externalPrice.toFixed(2)}</td>
+              <td className="px-3 py-1.5">₪{h.costPrice.toFixed(2)}</td>
+              <td className="px-3 py-1.5 font-bold">{h.quantitySold}</td>
+              <td className="px-3 py-1.5 font-semibold text-blue-600">₪{h.totalRevenue.toFixed(2)}</td>
+              <td className="px-3 py-1.5 font-semibold text-green-600">₪{h.totalProfit.toFixed(2)}</td>
             </tr>
           ))}
         </tbody>
@@ -381,6 +419,7 @@ export default function MitzraimPage() {
                   <TableHead className="text-xs font-bold text-muted-foreground">חברה</TableHead>
                   <TableHead className="text-xs font-bold text-muted-foreground">שם</TableHead>
                   <TableHead className="text-xs font-bold text-muted-foreground">סוג</TableHead>
+                  <TableHead className="text-xs font-bold text-muted-foreground">מידה</TableHead>
                   <TableHead className="text-xs font-bold text-muted-foreground">פרטים 1</TableHead>
                   <TableHead className="text-xs font-bold text-muted-foreground">פרטים 2</TableHead>
                   <TableHead className="text-xs font-bold text-muted-foreground">מלאי</TableHead>
@@ -437,6 +476,10 @@ export default function MitzraimPage() {
 
                         <TableCell className="py-2 text-sm">
                           {v?.sizeType || <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+
+                        <TableCell className="py-2 text-sm">
+                          {v?.size || <span className="text-muted-foreground">—</span>}
                         </TableCell>
 
                         <TableCell className="py-2 text-sm">
@@ -509,9 +552,48 @@ export default function MitzraimPage() {
                       {/* Expanded supply history */}
                       {isExpanded && v && (
                         <TableRow key={`${rowKey}__expanded`}>
-                          <TableCell colSpan={11} className="bg-muted/20 px-8 py-3">
-                            <div className="text-xs font-bold text-muted-foreground mb-2">היסטוריית הספקות</div>
-                            <SupplyHistory supplies={v.supplies} />
+                          <TableCell colSpan={12} className="bg-blue-50/40 px-6 py-4">
+                            <div className="space-y-4">
+
+                              {/* ── Info boxes ── */}
+                              <div className="grid grid-cols-5 gap-3">
+                                <div className="bg-white rounded-xl border p-3 text-center shadow-sm">
+                                  <div className="text-xs text-muted-foreground font-semibold mb-1">מחיר ישיבה</div>
+                                  <div className="text-lg font-black text-primary">₪{v.yeshivaPrice.toFixed(2)}</div>
+                                </div>
+                                <div className="bg-white rounded-xl border p-3 text-center shadow-sm">
+                                  <div className="text-xs text-muted-foreground font-semibold mb-1">מחיר חיצוני</div>
+                                  <div className="text-lg font-black text-blue-600">₪{v.externalPrice.toFixed(2)}</div>
+                                </div>
+                                <div className="bg-white rounded-xl border p-3 text-center shadow-sm">
+                                  <div className="text-xs text-muted-foreground font-semibold mb-1">מחיר עלות</div>
+                                  <div className="text-lg font-black text-orange-600">₪{v.costPrice.toFixed(2)}</div>
+                                </div>
+                                <div className="bg-white rounded-xl border p-3 text-center shadow-sm">
+                                  <div className="text-xs text-muted-foreground font-semibold mb-1">מלאי נוכחי</div>
+                                  <div className="text-lg font-black text-green-600">{v.currentStock}</div>
+                                </div>
+                                <div className="bg-white rounded-xl border p-3 text-center shadow-sm">
+                                  <div className="text-xs text-muted-foreground font-semibold mb-1">נמכר סה"כ</div>
+                                  <div className="text-lg font-black text-purple-600">{v.totalSold}</div>
+                                </div>
+                              </div>
+
+                              {/* ── Supply history ── */}
+                              <div>
+                                <div className="text-xs font-bold text-muted-foreground mb-2">📦 היסטוריית הספקות</div>
+                                <SupplyHistory supplies={v.supplies} />
+                              </div>
+
+                              {/* ── Price history ── */}
+                              {v.priceHistory.length > 0 && (
+                                <div>
+                                  <div className="text-xs font-bold text-muted-foreground mb-2">💰 היסטוריית מחירים</div>
+                                  <PriceHistoryTable priceHistory={v.priceHistory} />
+                                </div>
+                              )}
+
+                            </div>
                           </TableCell>
                         </TableRow>
                       )}
