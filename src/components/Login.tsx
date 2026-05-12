@@ -24,7 +24,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-secondary to-background" dir="rtl">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-secondary to-background" dir="rtl">
       <Card className="w-full max-w-md p-8 shadow-elegant">
 
         {/* Logo + title */}
@@ -68,6 +68,16 @@ export default function Login() {
         </form>
 
       </Card>
+
+      {/* Animated GIF below the login card — loops forever */}
+      <div className="mt-6">
+        <img
+          src="/login-anim.gif"
+          alt=""
+          style={{ maxHeight: 180, objectFit: 'contain', display: 'block' }}
+        />
+      </div>
+
     </div>
   );
 }
