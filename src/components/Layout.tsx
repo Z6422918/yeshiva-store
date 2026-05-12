@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import KupaPage from './kupa/KupaPage';
 import NihulPage from './nihul/NihulPage';
-import { formatTime, formatHebrew, formatWeekday } from '../lib/hebrewDate';
+import { formatTime, formatHebrew, formatWeekday, formatParasha } from '../lib/hebrewDate';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
@@ -17,17 +17,39 @@ function HeaderClock() {
     return () => clearInterval(t);
   }, []);
 
+  const fmtGregNumeric = (d: Date) =>
+    `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+
+  const fmtGregMonthName = (d: Date) => {
+    const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+    return months[d.getMonth()];
+  };
+
+  const hebrewFont: React.CSSProperties = { fontFamily: "'Heebo', sans-serif" };
+
   return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{
-        fontSize: 30, fontWeight: 900, color: '#1e3166',
-        letterSpacing: 3, fontVariantNumeric: 'tabular-nums', lineHeight: 1,
-        fontFamily: "'Heebo', sans-serif",
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+      {/* Right side: weekday + parasha */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.3 }}>
+        <span style={{ ...hebrewFont, fontSize: 13, fontWeight: 700, color: '#1a1a2e' }}>{formatWeekday(now)}</span>
+        <span style={{ ...hebrewFont, fontSize: 11, fontWeight: 600, color: '#c8890a' }}>{formatParasha(now)}</span>
+      </div>
+      {/* Center: big time with gradient */}
+      <span style={{
+        ...hebrewFont,
+        fontSize: 30, fontWeight: 900, letterSpacing: 3,
+        fontVariantNumeric: 'tabular-nums', lineHeight: 1, padding: '0 8px',
+        background: 'linear-gradient(to bottom, #1e3166, #c8890a)',
+        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
       }}>
         {formatTime(now)}
-      </div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#c8890a', marginTop: 3, fontFamily: "'Heebo', sans-serif" }}>
-        {formatWeekday(now)} · {formatHebrew(now)}
+      </span>
+      {/* Left side: Hebrew date + Gregorian */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.3 }}>
+        <span style={{ ...hebrewFont, fontSize: 13, fontWeight: 700, color: '#c8890a' }}>{formatHebrew(now)}</span>
+        <span style={{ ...hebrewFont, fontSize: 11, fontWeight: 500, color: '#aaa' }}>
+          {fmtGregMonthName(now)} · {fmtGregNumeric(now)}
+        </span>
       </div>
     </div>
   );
