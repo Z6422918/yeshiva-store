@@ -1,200 +1,34 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../../../store/useStore';
 import {
-  Save, ShieldAlert, RotateCcw, AlertTriangle,
+  Landmark, Save, Users, UserPlus, Pencil, Trash2,
+  ShieldAlert, RotateCcw, AlertTriangle, Building2,
 } from 'lucide-react';
 import type { User, UserRole, Supplier } from '../../../types';
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
+import { Badge } from '../../ui/badge';
+import {
+  Table, TableBody, TableCell, TableHead,
+  TableHeader, TableRow,
+} from '../../ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
-
-// ─── Constants ─────────────────────────────────────────────────────────────────
-const NAVY = '#1e3166';
-const TH_COLOR = '#9fa8da';
-
-// ─── Suppliers Section ─────────────────────────────────────────────────────────
-function SuppliersSection() {
-  const { suppliers, addSupplier, updateSupplier, deleteSupplier } = useStore();
-  const [dlg, setDlg] = useState<{ open: boolean; edit?: Supplier }>({ open: false });
-  const [form, setForm] = useState({ name: '', type: 'purchase' as 'purchase' | 'commission', phone: '', contactInfo: '' });
-
-  const openAdd = () => { setForm({ name: '', type: 'purchase', phone: '', contactInfo: '' }); setDlg({ open: true }); };
-  const openEdit = (s: Supplier) => { setForm({ name: s.name, type: s.type as 'purchase' | 'commission', phone: s.phone ?? '', contactInfo: s.contactInfo ?? '' }); setDlg({ open: true, edit: s }); };
-
-  const handleSave = () => {
-    if (!form.name.trim()) return;
-    if (dlg.edit) updateSupplier(dlg.edit.id, form);
-    else addSupplier(form);
-    setDlg({ open: false });
-  };
-
-  const settingsCard: React.CSSProperties = {
-    background: '#fff', borderRadius: 18, padding: 20, marginBottom: 14,
-    border: '1px solid #eaecf5', boxShadow: '0 2px 12px rgba(26,35,126,0.06)',
-  };
-  const settingsTitle: React.CSSProperties = {
-    fontSize: 14, fontWeight: 900, color: NAVY, marginBottom: 16, fontFamily: "'Heebo', sans-serif",
-  };
-  const userRow: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    background: '#f8f9fd', borderRadius: 14, padding: '12px 16px', marginBottom: 8,
-  };
-  const iconBtn = (bg: string, color: string): React.CSSProperties => ({
-    width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer',
-    background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 13, transition: 'all .2s',
-  });
-
-  return (
-    <div>
-      <div style={settingsCard}>
-        <div style={settingsTitle}>🏭 ניהול ספקים וסוכנים</div>
-        <div style={{ marginBottom: 14 }}>
-          <button
-            onClick={openAdd}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7,
-              padding: '10px 18px', borderRadius: 12, border: 'none',
-              fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              background: NAVY, color: '#fff',
-              boxShadow: '0 4px 12px rgba(30,49,102,0.25)',
-              fontFamily: "'Heebo', sans-serif",
-            }}
-          >
-            + הוסף ספק
-          </button>
-        </div>
-
-        {suppliers.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '20px 0', color: TH_COLOR, fontSize: 13, fontFamily: "'Heebo', sans-serif" }}>
-            אין ספקים
-          </div>
-        )}
-
-        {suppliers.map(s => (
-          <div key={s.id} style={userRow}>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button
-                onClick={() => { if (window.confirm(`למחוק את ${s.name}?`)) deleteSupplier(s.id); }}
-                style={iconBtn('#ffebee', '#e57373')}
-              >🗑</button>
-              <button onClick={() => openEdit(s)} style={iconBtn('#eef0fb', '#5c6bc0')}>✏️</button>
-            </div>
-            <div style={{ textAlign: 'right', flex: 1, margin: '0 12px' }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: NAVY, fontFamily: "'Heebo', sans-serif" }}>{s.name}</div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: TH_COLOR, marginTop: 2, fontFamily: "'Heebo', sans-serif" }}>{s.phone}</div>
-            </div>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', padding: '3px 10px',
-              borderRadius: 20, fontSize: 11, fontWeight: 700,
-              ...(s.type === 'commission'
-                ? { background: '#f3e5f5', color: '#6a1b9a' }
-                : { background: '#fff3e0', color: '#e65100' }),
-            }}>
-              {s.type === 'commission' ? 'קומיסיון' : 'קניה'}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Add/Edit dialog */}
-      <Dialog open={dlg.open} onOpenChange={o => !o && setDlg({ open: false })}>
-        <DialogContent dir="rtl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              🏭 {dlg.edit ? 'עריכת ספק' : 'הוספת ספק'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-1 gap-3">
-            <div className="space-y-1.5">
-              <Label>שם ספק</Label>
-              <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="שם..." />
-            </div>
-            <div className="space-y-1.5">
-              <Label>סוג</Label>
-              <select
-                value={form.type}
-                onChange={e => setForm(f => ({ ...f, type: e.target.value as 'purchase' | 'commission' }))}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="purchase">קניה</option>
-                <option value="commission">קומיסיון</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>טלפון</Label>
-              <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} dir="ltr" placeholder="050-..." />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDlg({ open: false })}>ביטול</Button>
-            <Button onClick={handleSave} className="gap-2">
-              <Save className="w-4 h-4" /> {dlg.edit ? 'שמור' : 'הוסף ספק'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
 
 // ─── Role labels ───────────────────────────────────────────────────────────────
 const roleLabels: Record<UserRole, string> = {
   kupa: 'קופה', manager: 'מנהל', admin: 'מנהל ראשי',
 };
 
-// ─── Shared inline style helpers ───────────────────────────────────────────────
-const sCard: React.CSSProperties = {
-  background: '#fff', borderRadius: 18, padding: 20, marginBottom: 14,
-  border: '1px solid #eaecf5', boxShadow: '0 2px 12px rgba(26,35,126,0.06)',
-};
-const sTitle: React.CSSProperties = {
-  fontSize: 14, fontWeight: 900, color: NAVY, marginBottom: 16,
-  fontFamily: "'Heebo', sans-serif",
-};
-const sRow: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  padding: '11px 0', borderBottom: '1px solid #f4f6fb',
-};
-const sLabel: React.CSSProperties = {
-  fontSize: 13, fontWeight: 700, color: '#333', fontFamily: "'Heebo', sans-serif",
-};
-const sSub: React.CSSProperties = {
-  fontSize: 11, color: '#bbb', marginTop: 2, fontFamily: "'Heebo', sans-serif",
-};
-const sInput: React.CSSProperties = {
-  border: '1.5px solid #e0e4f0', borderRadius: 11, padding: '8px 13px',
-  fontSize: 13, fontFamily: "'Heebo', sans-serif", color: '#333', outline: 'none',
-  width: 220, textAlign: 'right',
-};
-const btnNavy: React.CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 7,
-  padding: '10px 18px', borderRadius: 12, border: 'none',
-  fontSize: 13, fontWeight: 700, cursor: 'pointer',
-  background: NAVY, color: '#fff',
-  boxShadow: '0 4px 12px rgba(30,49,102,0.25)',
-  fontFamily: "'Heebo', sans-serif",
-};
-const userRow: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  background: '#f8f9fd', borderRadius: 14, padding: '12px 16px', marginBottom: 8,
-};
-const iconBtnStyle = (bg: string, color: string): React.CSSProperties => ({
-  width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer',
-  background: bg, color, display: 'inline-flex', alignItems: 'center',
-  justifyContent: 'center', fontSize: 13, transition: 'all .2s',
-});
-
 // ─── Nedarim Settings ──────────────────────────────────────────────────────────
 function NedarimSettings() {
   const { settings, updateSettings } = useStore();
-  const [apiUrl, setApiUrl] = useState('');
   const [mosadId, setMosadId] = useState(settings.nedarimInstitutionCode ?? '');
+  const [apiUrl,  setApiUrl]  = useState('');
   const [matchId, setMatchId] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saving,  setSaving]  = useState(false);
+  const [saved,   setSaved]   = useState(false);
 
   const handleSave = () => {
     setSaving(true);
@@ -205,51 +39,55 @@ function NedarimSettings() {
   };
 
   return (
-    <div style={sCard}>
-      <div style={sTitle}>🔗 חיבור נדרים פלוס</div>
-      <div style={{ ...sRow, borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
-        <div style={{ ...sRow, width: '100%', borderBottom: '1px solid #f4f6fb' }}>
-          <div><div style={sLabel}>שם החנות</div></div>
-          <input
-            style={sInput}
+    <Card className="p-4 shadow-soft">
+      <div className="flex items-center gap-2 mb-4 pb-2 border-b">
+        <Landmark className="w-5 h-5 text-accent" />
+        <h3 className="font-semibold">חיבור נדרים פלוס</h3>
+      </div>
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label>שם החנות</Label>
+          <Input
             value={settings.storeName}
             onChange={e => updateSettings({ storeName: e.target.value })}
           />
         </div>
-        <div style={{ ...sRow, width: '100%', borderBottom: '1px solid #f4f6fb' }}>
-          <div><div style={sLabel}>קוד מוסד</div><div style={sSub}>מזהה הישיבה בנדרים פלוס</div></div>
-          <input
-            style={{ ...sInput, direction: 'ltr' }}
+        <div className="space-y-1.5">
+          <Label>קוד מוסד</Label>
+          <p className="text-xs text-muted-foreground">מזהה הישיבה בנדרים פלוס</p>
+          <Input
+            dir="ltr"
             value={mosadId}
             onChange={e => setMosadId(e.target.value)}
             placeholder="לדוגמה: 7011179"
           />
         </div>
-        <div style={{ ...sRow, width: '100%', borderBottom: '1px solid #f4f6fb' }}>
-          <div><div style={sLabel}>כתובת API</div><div style={sSub}>כתובת ה-API של נדרים פלוס</div></div>
-          <input
-            style={{ ...sInput, direction: 'ltr' }}
+        <div className="space-y-1.5">
+          <Label>כתובת API</Label>
+          <p className="text-xs text-muted-foreground">כתובת ה-API של נדרים פלוס</p>
+          <Input
+            dir="ltr"
             value={apiUrl}
             onChange={e => setApiUrl(e.target.value)}
             placeholder="https://matara.pro/nedarimplus/..."
           />
         </div>
-        <div style={{ ...sRow, width: '100%', borderBottom: 'none' }}>
-          <div><div style={sLabel}>קוד מאצ'ינג</div><div style={sSub}>נדרש רק לשליפת מגייסים ויעדים. אם אין לך, השאר ריק.</div></div>
-          <input
-            style={{ ...sInput, direction: 'ltr' }}
+        <div className="space-y-1.5">
+          <Label>קוד מאצ'ינג</Label>
+          <p className="text-xs text-muted-foreground">נדרש רק לשליפת מגייסים ויעדים. אם אין לך, השאר ריק.</p>
+          <Input
+            dir="ltr"
             value={matchId}
             onChange={e => setMatchId(e.target.value)}
             placeholder="מזהה התאמה (אופציונלי)"
           />
         </div>
-        <div style={{ marginTop: 16 }}>
-          <button onClick={handleSave} disabled={saving} style={btnNavy}>
-            💾 {saving ? 'שומר...' : saved ? '✓ נשמר!' : 'שמור הגדרות'}
-          </button>
-        </div>
+        <Button onClick={handleSave} disabled={saving} className="gap-2">
+          <Save className="w-4 h-4" />
+          {saving ? 'שומר...' : saved ? '✓ נשמר!' : 'שמור הגדרות'}
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -259,10 +97,10 @@ function UserDialog({
 }: { open: boolean; onClose: () => void; editUser?: User }) {
   const { addUser, updateUser } = useStore();
   const [form, setForm] = useState({
-    name: editUser?.name ?? '',
+    name:     editUser?.name     ?? '',
     username: editUser?.username ?? '',
     password: editUser?.password ?? '',
-    role: (editUser?.role ?? 'kupa') as UserRole,
+    role:    (editUser?.role     ?? 'kupa') as UserRole,
   });
 
   const handleSave = () => {
@@ -276,7 +114,11 @@ function UserDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent dir="rtl">
         <DialogHeader>
-          <DialogTitle>{editUser ? '✏️ עריכת משתמש' : '👤 הוספת משתמש חדש'}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {editUser
+              ? <><Pencil className="w-5 h-5" /> עריכת משתמש</>
+              : <><UserPlus className="w-5 h-5" /> הוספת משתמש חדש</>}
+          </DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5">
@@ -318,61 +160,189 @@ function UsersManagement() {
   const { users, deleteUser, currentUser } = useStore();
   const [dlg, setDlg] = useState<{ open: boolean; edit?: User }>({ open: false });
 
-  const roleBadge = (role: UserRole): React.CSSProperties => {
-    if (role === 'admin')   return { background: '#f3e5f5', color: '#6a1b9a' };
-    if (role === 'manager') return { background: '#eef0fb', color: NAVY };
-    return { background: '#e8f5e9', color: '#2e7d32' };
+  const roleVariant = (role: UserRole): 'default' | 'secondary' | 'outline' => {
+    if (role === 'admin')   return 'default';
+    if (role === 'manager') return 'secondary';
+    return 'outline';
   };
-  const roleLabel = (role: UserRole) =>
-    role === 'admin' ? 'מנהל ראשי' : role === 'manager' ? 'מנהל' : 'קופה';
-
-  const badgeStyle = (role: UserRole): React.CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center',
-    padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-    fontFamily: "'Heebo', sans-serif", ...roleBadge(role),
-  });
 
   return (
-    <div style={sCard}>
-      <div style={sTitle}>👥 ניהול משתמשים</div>
-      <div style={{ marginBottom: 14 }}>
-        <button onClick={() => setDlg({ open: true })} style={btnNavy}>
-          + הוסף משתמש
-        </button>
-      </div>
-
-      {users.map(u => {
-        const isMe = u.id === currentUser?.id;
-        return (
-          <div key={u.id} style={userRow}>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {!isMe && (
-                <button
-                  onClick={() => { if (window.confirm(`למחוק את ${u.name}?`)) deleteUser(u.id); }}
-                  style={iconBtnStyle('#ffebee', '#e57373')}
-                >🗑</button>
-              )}
-              <button onClick={() => setDlg({ open: true, edit: u })} style={iconBtnStyle('#eef0fb', '#5c6bc0')}>✏️</button>
-            </div>
-            <div style={{ textAlign: 'right', flex: 1, margin: '0 12px' }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: NAVY, fontFamily: "'Heebo', sans-serif" }}>
-                {u.name}{isMe && <span style={{ fontSize: 10, fontWeight: 600, color: TH_COLOR, marginRight: 6 }}>אני</span>}
-              </div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: TH_COLOR, marginTop: 2, fontFamily: "'Heebo', sans-serif" }}>{u.username}</div>
-            </div>
-            <span style={badgeStyle(u.role)}>{roleLabel(u.role)}</span>
-          </div>
-        );
-      })}
-
-      {users.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '20px 0', color: TH_COLOR, fontSize: 13, fontFamily: "'Heebo', sans-serif" }}>
-          אין משתמשים
+    <Card className="p-4 shadow-soft">
+      <div className="flex items-center justify-between mb-4 pb-2 border-b">
+        <div className="flex items-center gap-2">
+          <Users className="w-5 h-5 text-primary" />
+          <h3 className="font-semibold">ניהול משתמשים</h3>
         </div>
-      )}
-
+        <Button size="sm" onClick={() => setDlg({ open: true })} className="gap-1.5">
+          <UserPlus className="w-4 h-4" /> הוסף משתמש
+        </Button>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="text-right">שם</TableHead>
+            <TableHead className="text-right">משתמש</TableHead>
+            <TableHead className="text-right">תפקיד</TableHead>
+            <TableHead />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {users.map(u => {
+            const isMe = u.id === currentUser?.id;
+            return (
+              <TableRow key={u.id}>
+                <TableCell className="font-medium">
+                  {u.name}
+                  {isMe && <span className="text-xs text-muted-foreground mr-1">אני</span>}
+                </TableCell>
+                <TableCell className="text-muted-foreground" dir="ltr">{u.username}</TableCell>
+                <TableCell>
+                  <Badge variant={roleVariant(u.role)}>{roleLabels[u.role]}</Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button
+                      size="icon" variant="ghost" className="h-7 w-7"
+                      onClick={() => setDlg({ open: true, edit: u })}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    {!isMe && (
+                      <Button
+                        size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => { if (window.confirm(`למחוק את ${u.name}?`)) deleteUser(u.id); }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+          {users.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={4} className="text-center text-muted-foreground py-8">אין משתמשים</TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
       <UserDialog open={dlg.open} onClose={() => setDlg({ open: false })} editUser={dlg.edit} />
-    </div>
+    </Card>
+  );
+}
+
+// ─── Suppliers Section ─────────────────────────────────────────────────────────
+function SuppliersSection() {
+  const { suppliers, addSupplier, updateSupplier, deleteSupplier } = useStore();
+  const [dlg,  setDlg]  = useState<{ open: boolean; edit?: Supplier }>({ open: false });
+  const [form, setForm] = useState({ name: '', type: 'purchase' as 'purchase' | 'commission', phone: '', contactInfo: '' });
+
+  const openAdd  = () => { setForm({ name: '', type: 'purchase', phone: '', contactInfo: '' }); setDlg({ open: true }); };
+  const openEdit = (s: Supplier) => {
+    setForm({ name: s.name, type: s.type as 'purchase' | 'commission', phone: s.phone ?? '', contactInfo: s.contactInfo ?? '' });
+    setDlg({ open: true, edit: s });
+  };
+
+  const handleSave = () => {
+    if (!form.name.trim()) return;
+    if (dlg.edit) updateSupplier(dlg.edit.id, form);
+    else addSupplier(form);
+    setDlg({ open: false });
+  };
+
+  return (
+    <>
+      <Card className="p-4 shadow-soft">
+        <div className="flex items-center justify-between mb-4 pb-2 border-b">
+          <div className="flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-primary" />
+            <h3 className="font-semibold">ניהול ספקים וסוכנים</h3>
+          </div>
+          <Button size="sm" onClick={openAdd} className="gap-1.5">
+            <Building2 className="w-4 h-4" /> הוסף ספק
+          </Button>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-right">שם</TableHead>
+              <TableHead className="text-right">טלפון</TableHead>
+              <TableHead className="text-right">סוג</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {suppliers.map(s => (
+              <TableRow key={s.id}>
+                <TableCell className="font-medium">{s.name}</TableCell>
+                <TableCell className="text-muted-foreground" dir="ltr">{s.phone}</TableCell>
+                <TableCell>
+                  <Badge variant={s.type === 'commission' ? 'secondary' : 'outline'}>
+                    {s.type === 'commission' ? 'קומיסיון' : 'קניה'}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(s)}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={() => { if (window.confirm(`למחוק את ${s.name}?`)) deleteSupplier(s.id); }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+            {suppliers.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">אין ספקים</TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+
+      <Dialog open={dlg.open} onOpenChange={o => !o && setDlg({ open: false })}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="w-5 h-5" /> {dlg.edit ? 'עריכת ספק' : 'הוספת ספק'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3">
+            <div className="space-y-1.5">
+              <Label>שם ספק</Label>
+              <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="שם..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label>סוג</Label>
+              <select
+                value={form.type}
+                onChange={e => setForm(f => ({ ...f, type: e.target.value as 'purchase' | 'commission' }))}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="purchase">קניה</option>
+                <option value="commission">קומיסיון</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>טלפון</Label>
+              <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} dir="ltr" placeholder="050-..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDlg({ open: false })}>ביטול</Button>
+            <Button onClick={handleSave} className="gap-2">
+              <Save className="w-4 h-4" /> {dlg.edit ? 'שמור' : 'הוסף ספק'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -382,8 +352,8 @@ const COUNTDOWN_SECONDS = 60;
 type ResetStep = 'idle' | 'confirm1' | 'confirm2' | 'code' | 'confirm3' | 'countdown' | 'resetting';
 
 function ResetSystem() {
-  const [step, setStep] = useState<ResetStep>('idle');
-  const [codeInput, setCodeInput] = useState('');
+  const [step,        setStep]        = useState<ResetStep>('idle');
+  const [codeInput,   setCodeInput]   = useState('');
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECONDS);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -425,7 +395,6 @@ function ResetSystem() {
   const fmtTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
   const progress = ((COUNTDOWN_SECONDS - secondsLeft) / COUNTDOWN_SECONDS) * 100;
 
-  // Shared overlay wrapper
   const Overlay = ({ open, children }: { open: boolean; children: React.ReactNode }) => {
     if (!open) return null;
     return (
@@ -548,7 +517,6 @@ function ResetSystem() {
 
           {step === 'countdown' && (
             <div className="flex flex-col items-center gap-6">
-              {/* Circular countdown */}
               <div className="relative w-36 h-36">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
                   <circle cx="60" cy="60" r="54" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
@@ -621,8 +589,8 @@ export default function HagdarotPage() {
               padding: '8px 20px', borderRadius: 12, border: 'none',
               fontSize: 13, fontWeight: 700, cursor: 'pointer',
               transition: 'all .2s', fontFamily: "'Heebo', sans-serif",
-              background: active === t.value ? '#fff'        : 'transparent',
-              color:      active === t.value ? '#1a1a2e'     : '#9fa8da',
+              background: active === t.value ? '#fff'    : 'transparent',
+              color:      active === t.value ? '#1a1a2e' : '#9fa8da',
               boxShadow:  active === t.value ? '0 2px 8px rgba(30,49,102,0.12)' : 'none',
             }}
           >
