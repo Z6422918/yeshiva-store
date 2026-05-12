@@ -35,13 +35,14 @@ interface AppState {
   deleteUser: (id: string) => void;
 
   // Actions - Products
-  addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => void;
+  addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => string;
   updateProduct: (id: string, data: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
   addVariant: (productId: string, variant: Omit<ProductVariant, 'id' | 'priceHistory' | 'supplies' | 'currentStock' | 'totalSold'>) => void;
   updateVariant: (productId: string, variantId: string, data: Partial<ProductVariant>) => void;
   deleteVariant: (productId: string, variantId: string) => void;
   addSupply: (productId: string, variantId: string, supply: Omit<Supply, 'id'>) => void;
+  deleteSupply: (productId: string, variantId: string, supplyId: string) => void;
 
   // Actions - Suppliers
   addSupplier: (supplier: Omit<Supplier, 'id'>) => void;
@@ -57,6 +58,8 @@ interface AppState {
 
   // Actions - Transactions
   completeTransaction: (paymentMethod: PaymentMethod, nedarimRef?: string) => Transaction;
+  completeSpecialApproval: (approvalId: string, approverName: string) => void;
+  moveTransactionToMethod: (transactionId: string, method: 'cash' | 'credit') => void;
   transferToSafe: (source: 'cash' | 'credit', transactionIds: string[], amount: number) => void;
 
   // Actions - Safe
@@ -66,7 +69,7 @@ interface AppState {
 
   // Actions - Special Approvals
   addSpecialApproval: (approval: Omit<SpecialApproval, 'id' | 'date'>) => void;
-  updateApprovalStatus: (id: string, status: 'approved' | 'rejected', approvedBy: string) => void;
+  updateApprovalStatus: (id: string, status: 'approved' | 'rejected' | 'cancelled', approverName?: string) => void;
 
   // Actions - Settings
   updateSettings: (settings: Partial<Settings>) => void;
@@ -86,6 +89,7 @@ const initialSettings: Settings = {
   nedarimInstitutionCode: '',
   nedarimApiKey: '',
   storeName: 'חנות הישיבה',
+  specialApprovalCode: '1234',
 };
 
 const adminUser: User = {
@@ -122,9 +126,13 @@ export const useStore = create<AppState>()(
       updateUser: (id, data) => set(s => ({ users: s.users.map(u => u.id === id ? { ...u, ...data } : u) })),
       deleteUser: (id) => set(s => ({ users: s.users.filter(u => u.id !== id) })),
 
-      addProduct: (product) => set(s => ({
-        products: [...s.products, { ...product, id: uuidv4(), createdAt: new Date().toISOString() }]
-      })),
+      addProduct: (product) => {
+        const id = uuidv4();
+        set(s => ({
+          products: [...s.products, { ...product, id, createdAt: new Date().toISOString() }]
+        }));
+        return id;
+      },
       updateProduct: (id, data) => set(s => ({
         products: s.products.map(p => p.id === id ? { ...p, ...data } : p)
       })),
@@ -135,6 +143,7 @@ export const useStore = create<AppState>()(
           ...p,
           variants: [...p.variants, {
             ...variant,
+            size: variant.size ?? '',
             id: uuidv4(),
             priceHistory: [],
             supplies: [],
@@ -191,6 +200,24 @@ export const useStore = create<AppState>()(
                 ...v,
                 supplies: [...v.supplies, { ...supply, id: uuidv4() }],
                 currentStock: v.currentStock + supply.quantity,
+              };
+            })
+          };
+        })
+      })),
+
+      deleteSupply: (productId, variantId, supplyId) => set(s => ({
+        products: s.products.map(p => {
+          if (p.id !== productId) return p;
+          return {
+            ...p,
+            variants: p.variants.map(v => {
+              if (v.id !== variantId) return v;
+              const removed = v.supplies.find(s => s.id === supplyId);
+              return {
+                ...v,
+                supplies: v.supplies.filter(s => s.id !== supplyId),
+                currentStock: Math.max(0, v.currentStock - (removed?.quantity ?? 0)),
               };
             })
           };
@@ -304,12 +331,59 @@ export const useStore = create<AppState>()(
 
       addSpecialApproval: (approval) => set(s => ({
         specialApprovals: [...s.specialApprovals, {
-          ...approval, id: uuidv4(), date: new Date().toISOString().split('T')[0]
+          ...approval, id: uuidv4(), date: new Date().toISOString()
         }]
       })),
 
-      updateApprovalStatus: (id, status, approvedBy) => set(s => ({
-        specialApprovals: s.specialApprovals.map(a => a.id === id ? { ...a, status, approvedBy } : a)
+      updateApprovalStatus: (id, status, approverName) => set(s => ({
+        specialApprovals: s.specialApprovals.map(a =>
+          a.id === id ? { ...a, status, approverName: approverName ?? a.approverName, resolvedAt: new Date().toISOString() } : a
+        )
+      })),
+
+      completeSpecialApproval: (approvalId, approverName) => {
+        const { specialApprovals, products } = get();
+        const approval = specialApprovals.find(a => a.id === approvalId);
+        if (!approval) return;
+        const transaction: Transaction = {
+          id: uuidv4(),
+          date: new Date().toISOString(),
+          items: approval.items,
+          buyerType: approval.customerType,
+          paymentMethod: 'special',
+          totalAmount: approval.total,
+          transferredToSafe: false,
+          cashierName: approverName,
+        };
+        set(s => {
+          const updatedProducts = s.products.map(p => ({
+            ...p,
+            variants: p.variants.map(v => {
+              const item = approval.items.find(i => i.productId === p.id && i.variantId === v.id);
+              if (!item) return v;
+              return {
+                ...v,
+                currentStock: Math.max(0, v.currentStock - item.quantity),
+                totalSold: v.totalSold + item.quantity,
+              };
+            })
+          }));
+          return {
+            transactions: [...s.transactions, transaction],
+            products: updatedProducts,
+            specialApprovals: s.specialApprovals.map(a =>
+              a.id === approvalId
+                ? { ...a, status: 'approved', approverName, resolvedAt: new Date().toISOString() }
+                : a
+            ),
+          };
+        });
+      },
+
+      moveTransactionToMethod: (transactionId, method) => set(s => ({
+        transactions: s.transactions.map(t =>
+          t.id === transactionId ? { ...t, paymentMethod: method } : t
+        )
       })),
 
       updateSettings: (settings) => set(s => ({ settings: { ...s.settings, ...settings } })),

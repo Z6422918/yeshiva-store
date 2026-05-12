@@ -1,6 +1,6 @@
 export type UserRole = 'kupa' | 'manager' | 'admin';
 export type BuyerType = 'yeshiva' | 'external';
-export type PaymentMethod = 'cash' | 'credit';
+export type PaymentMethod = 'cash' | 'credit' | 'special';
 export type AgentType = 'commission' | 'purchase';
 
 export interface User {
@@ -32,11 +32,12 @@ export interface Supply {
 
 export interface ProductVariant {
   id: string;
-  sizeType: string;
-  details1: string;
-  details2: string;
-  yeshivaPrice: number;
-  externalPrice: number;
+  sizeType: string;   // = type (סוג)
+  size: string;       // מידה (separate field)
+  details1: string;   // = details (פרטים נוספים)
+  details2: string;   // = cut (פרטים נוספים 2)
+  yeshivaPrice: number;   // = priceInternal
+  externalPrice: number;  // = priceExternal
   costPrice: number;
   priceHistory: PriceHistoryEntry[];
   supplies: Supply[];
@@ -107,14 +108,19 @@ export interface Settings {
   nedarimInstitutionCode: string;
   nedarimApiKey: string;
   storeName: string;
+  specialApprovalCode: string;
 }
 
 export interface SpecialApproval {
   id: string;
   date: string;
-  description: string;
-  amount: number;
-  requestedBy: string;
-  approvedBy: string;
-  status: 'pending' | 'approved' | 'rejected';
+  customerType: 'yeshiva' | 'external';
+  total: number;
+  items: CartItem[];
+  firstName: string;
+  lastName: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  approverName: string;
+  resolvedAt: string | null;
 }

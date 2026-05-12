@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { ShoppingCart, Settings, Store, LogOut } from 'lucide-react';
+import { ShoppingCart, Settings, LogOut } from 'lucide-react';
 import KupaPage from './kupa/KupaPage';
 import NihulPage from './nihul/NihulPage';
 import { cn } from '../lib/utils';
@@ -92,16 +92,20 @@ export default function Layout() {
         <div className="w-full px-6 py-3 flex items-center gap-4">
 
           {/* Right: logo + store name */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="w-11 h-11 rounded-xl gradient-primary flex items-center justify-center shadow-soft">
-              <Store className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <div>
+          <div className="flex flex-col items-end shrink-0">
+            <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold leading-tight">{storeName}</h1>
-              <p className="text-xs text-muted-foreground">
-                {roleLabel} • {currentUser?.name}
-              </p>
+              <img
+                src="/favicon.png"
+                alt=""
+                aria-hidden="true"
+                className="opacity-90 shrink-0"
+                style={{ height: '20px', width: '176px', objectFit: 'contain' }}
+              />
             </div>
+            <p className="text-xs text-muted-foreground">
+              {roleLabel} • {currentUser?.name}
+            </p>
           </div>
 
           {/* Center: Hebrew clock */}

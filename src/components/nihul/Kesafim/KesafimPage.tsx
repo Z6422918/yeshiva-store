@@ -121,7 +121,7 @@ export default function KesafimPage() {
   const totalIncomes   = safeEntries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
   const totalExpenses  = safeEntries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
 
-  const pendingApprovals = specialApprovals.filter(a => a.status === 'pending').reduce((s, a) => s + a.amount, 0);
+  const pendingApprovals = specialApprovals.filter(a => a.status === 'pending').reduce((s, a) => s + a.total, 0);
   const projectedIncomes = cashPending + creditPending + pendingApprovals;
 
   const gemachDebt = safeEntries

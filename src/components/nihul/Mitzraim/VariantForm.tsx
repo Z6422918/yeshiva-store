@@ -11,6 +11,7 @@ export default function VariantForm({ productId, variantId, onClose }: Props) {
 
   const [form, setForm] = useState({
     sizeType: existing?.sizeType ?? '',
+    size: existing?.size ?? '',
     details1: existing?.details1 ?? '',
     details2: existing?.details2 ?? '',
     yeshivaPrice: existing?.yeshivaPrice ?? 0,
@@ -39,7 +40,8 @@ export default function VariantForm({ productId, variantId, onClose }: Props) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="grid grid-cols-3 gap-2">
           {[
-            { key: 'sizeType', label: 'סוג מידה', type: 'text' },
+            { key: 'sizeType', label: 'סוג', type: 'text' },
+            { key: 'size', label: 'מידה', type: 'text' },
             { key: 'details1', label: 'פרטים 1', type: 'text' },
             { key: 'details2', label: 'פרטים 2', type: 'text' },
             { key: 'yeshivaPrice', label: 'מחיר ישיבה ₪', type: 'number' },
