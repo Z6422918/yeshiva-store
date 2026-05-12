@@ -29,53 +29,55 @@ function TxList({ transactions }: { transactions: Transaction[] }) {
     textAlign: 'right', padding: '12px 14px',
     fontSize: 11, fontWeight: 800, color: TH_COLOR,
     borderBottom: `1px solid ${BORDER}`, whiteSpace: 'nowrap',
-    background: THEAD_BG,
   };
-  const tdS: React.CSSProperties = {
+  const tdS = (isLast: boolean): React.CSSProperties => ({
     padding: '12px 14px', fontSize: 13, color: '#333',
     fontWeight: 500, verticalAlign: 'middle',
-    borderBottom: `1px solid ${ROW_BORDER}`,
-  };
+    borderBottom: isLast ? 'none' : `1px solid ${ROW_BORDER}`,
+  });
 
   if (transactions.length === 0)
     return <div style={{ textAlign: 'center', padding: '32px', color: TH_COLOR, fontSize: 13 }}>אין עסקאות</div>;
+
+  const sorted = [...transactions].sort((a,b) => b.date.localeCompare(a.date));
 
   return (
     <div style={{ overflowX: 'auto', borderRadius: '0 0 20px 20px' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
-          <tr>
+          <tr style={{ background: THEAD_BG }}>
             {['תאריך','שעה','סכום','קונה','תשלום','פריטים'].map(h => (
               <th key={h} style={thS}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {[...transactions].sort((a,b) => b.date.localeCompare(a.date)).map((tx, i, arr) => (
+          {sorted.map((tx, i) => {
+            const isLast = i === sorted.length - 1;
+            return (
             <tr
               key={tx.id}
-              style={{ borderBottom: i < arr.length-1 ? `1px solid ${ROW_BORDER}` : 'none' }}
               onMouseEnter={e => e.currentTarget.querySelectorAll('td').forEach(td => (td.style.background = HOVER_BG))}
               onMouseLeave={e => e.currentTarget.querySelectorAll('td').forEach(td => (td.style.background = ''))}
             >
-              <td style={tdS}>{fmtDate(tx.date)}</td>
-              <td style={{ ...tdS, color: TH_COLOR }}>{fmtTime(tx.date)}</td>
-              <td style={{ ...tdS, fontWeight: 900, color: '#2e7d32' }}>₪{tx.totalAmount.toFixed(2)}</td>
-              <td style={tdS}>
+              <td style={tdS(isLast)}>{fmtDate(tx.date)}</td>
+              <td style={{ ...tdS(isLast), color: TH_COLOR }}>{fmtTime(tx.date)}</td>
+              <td style={{ ...tdS(isLast), fontWeight: 900, color: '#2e7d32' }}>₪{tx.totalAmount.toFixed(2)}</td>
+              <td style={tdS(isLast)}>
                 {tx.buyerType === 'yeshiva'
                   ? <span style={{ display:'inline-flex', alignItems:'center', padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:'#eef0fb', color:NAVY }}>💙 ישיבה</span>
                   : <span style={{ display:'inline-flex', alignItems:'center', padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:'#f0f2f8', color:'#666' }}>🧑 חיצוני</span>}
               </td>
-              <td style={tdS}>
+              <td style={tdS(isLast)}>
                 {tx.paymentMethod === 'cash'
                   ? <span style={{ display:'inline-flex', alignItems:'center', padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:'#e8f5e9', color:'#2e7d32' }}>💵 מזומן</span>
                   : tx.paymentMethod === 'credit'
-                  ? <span style={{ display:'inline-flex', alignItems:'center', padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:'#eef0fb', color:INDIGO }}>💳 אשראי</span>
+                  ? <span style={{ display:'inline-flex', alignItems:'center', padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:'#eef0fb', color:NAVY }}>💳 אשראי</span>
                   : <span style={{ display:'inline-flex', alignItems:'center', padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:'#fff3e0', color:'#e65100' }}>🔐 מיוחד</span>}
               </td>
-              <td style={{ ...tdS, fontWeight: 700 }}>{tx.items.length}</td>
+              <td style={{ ...tdS(isLast), fontWeight: 700 }}>{tx.items.length}</td>
             </tr>
-          ))}
+          )})}
         </tbody>
       </table>
     </div>
@@ -104,7 +106,7 @@ function NedarimTab() {
             fontSize:13, fontWeight:700, cursor:'pointer',
             background:NAVY, color:'#fff',
             boxShadow:'0 4px 12px rgba(30,49,102,0.25)',
-            textDecoration:'none', fontFamily:'inherit',
+            textDecoration:'none', fontFamily:"'Heebo', sans-serif",
           }}
         >
           פתח דוחות נדרים פלוס
@@ -117,7 +119,7 @@ function NedarimTab() {
             padding:'10px 22px', borderRadius:12, border:'none',
             fontSize:13, fontWeight:700,
             background:'#c5cae9', color:'#fff',
-            cursor:'not-allowed', fontFamily:'inherit',
+            cursor:'not-allowed', fontFamily:"'Heebo', sans-serif",
           }}
         >
           פתח דוחות נדרים פלוס
@@ -160,7 +162,7 @@ export default function IsakaotPage() {
     fontWeight: 700,
     cursor: 'pointer',
     transition: 'all .2s',
-    fontFamily: 'inherit',
+    fontFamily: "'Heebo', sans-serif",
     background: active === val ? NAVY : '#f0f2f8',
     color: active === val ? '#fff' : TH_COLOR,
     boxShadow: active === val ? '0 3px 10px rgba(30,49,102,0.25)' : 'none',
@@ -203,7 +205,7 @@ export default function IsakaotPage() {
               display:'inline-flex', alignItems:'center', gap:7,
               padding:'10px 18px', borderRadius:12, border:'none',
               fontSize:13, fontWeight:700, cursor: cashPending > 0 ? 'pointer' : 'not-allowed',
-              fontFamily:'inherit', whiteSpace:'nowrap',
+              fontFamily:"'Heebo', sans-serif", whiteSpace:'nowrap',
               background: cashPending > 0 ? '#4caf50' : '#a5d6a7',
               color:'#fff',
               boxShadow: cashPending > 0 ? '0 4px 10px rgba(76,175,80,0.3)' : 'none',
@@ -229,7 +231,7 @@ export default function IsakaotPage() {
               display:'inline-flex', alignItems:'center', gap:7,
               padding:'10px 18px', borderRadius:12, border:'none',
               fontSize:13, fontWeight:700, cursor: creditPending > 0 ? 'pointer' : 'not-allowed',
-              fontFamily:'inherit', whiteSpace:'nowrap',
+              fontFamily:"'Heebo', sans-serif", whiteSpace:'nowrap',
               background: creditPending > 0 ? '#1565c0' : '#90caf9',
               color:'#fff',
               boxShadow: creditPending > 0 ? '0 4px 10px rgba(21,101,192,0.3)' : 'none',
