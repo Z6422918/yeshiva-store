@@ -4,16 +4,15 @@ import IsakaotPage from './Isakaot/IsakaotPage';
 import MitzraimPage from './Mitzraim/MitzraimPage';
 import KesafimPage from './Kesafim/KesafimPage';
 import HagdarotPage from './Hagdarot/HagdarotPage';
-import { Package, BarChart2, Wallet, Settings } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 type NihulTab = 'mitzraim' | 'isakaot' | 'kesafim' | 'hagdarot';
 
-const tabs: { id: NihulTab; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean }[] = [
-  { id: 'mitzraim', label: 'מוצרים',  icon: Package   },
-  { id: 'isakaot',  label: 'עסקאות',  icon: BarChart2  },
-  { id: 'kesafim',  label: 'כספים',   icon: Wallet     },
-  { id: 'hagdarot', label: 'הגדרות',  icon: Settings,  adminOnly: true },
+const tabs: { id: NihulTab; label: string; emoji: string; adminOnly?: boolean }[] = [
+  { id: 'mitzraim', label: 'מוצרים', emoji: '📦' },
+  { id: 'isakaot',  label: 'עסקאות', emoji: '📊' },
+  { id: 'kesafim',  label: 'כספים',  emoji: '💰' },
+  { id: 'hagdarot', label: 'הגדרות', emoji: '⚙️', adminOnly: true },
 ];
 
 export default function NihulPage() {
@@ -38,7 +37,7 @@ export default function NihulPage() {
                 : "hover:bg-secondary text-muted-foreground hover:text-foreground"
             )}
           >
-            <tab.icon className="w-4 h-4 shrink-0" />
+            <span className="text-base">{tab.emoji}</span>
             {tab.label}
           </button>
         ))}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../../../store/useStore';
-import { ShieldAlert, RotateCcw, AlertTriangle } from 'lucide-react';
+import { RotateCcw, AlertTriangle } from 'lucide-react';
 import type { User, UserRole, Supplier } from '../../../types';
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -323,7 +323,7 @@ function ResetSystem() {
     <>
       <Card className="p-6 shadow-soft border-destructive/30 bg-destructive/5">
         <div className="flex items-center gap-2 mb-3">
-          <ShieldAlert className="w-5 h-5 text-destructive" />
+          <span className="text-xl">⚠️</span>
           <h3 className="text-lg font-bold text-destructive">איפוס מערכת</h3>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
@@ -348,7 +348,7 @@ function ResetSystem() {
       </Overlay>
 
       <Overlay open={step === 'code'}>
-        <div className="flex items-center gap-2 mb-2 text-destructive"><ShieldAlert className="w-5 h-5" /><h2 className="text-lg font-bold">הזן קוד אישור מיוחד</h2></div>
+        <div className="flex items-center gap-2 mb-2 text-destructive"><span className="text-xl">🔐</span><h2 className="text-lg font-bold">הזן קוד אישור מיוחד</h2></div>
         <p className="text-sm text-muted-foreground mb-4">כדי לאשר את האיפוס, הזן את הקוד: <strong className="text-foreground font-mono text-lg">{RESET_CODE}</strong></p>
         <Input dir="ltr" value={codeInput} onChange={e => setCodeInput(e.target.value.toUpperCase())} placeholder="הזן קוד אישור..." className="text-center font-mono text-lg tracking-widest mb-4" autoFocus />
         <div className="flex gap-2 justify-end">
