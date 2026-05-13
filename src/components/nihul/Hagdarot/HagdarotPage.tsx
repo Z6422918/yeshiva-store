@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../../../store/useStore';
-import { RotateCcw, AlertTriangle, ShieldAlert, Landmark, Users, Building2 } from 'lucide-react';
-import type { User, UserRole, Supplier } from '../../../types';
+import { RotateCcw, AlertTriangle, ShieldAlert, Landmark, Users } from 'lucide-react';
+import type { User, UserRole } from '../../../types';
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -216,9 +216,9 @@ function UsersManagement() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <button
                 onClick={() => setDlg({ open: true, edit: u })}
-                style={{ ...btnLight, padding: '5px 10px', fontSize: 11 }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 9, border: 'none', cursor: 'pointer', background: '#eef0fb', color: '#5c6bc0', fontSize: 11, fontWeight: 700, fontFamily: F }}
               >
-                עריכה / איפוס סיסמה ✏️
+                ✏️ עריכה / איפוס סיסמה
               </button>
               {!isMe && (
                 <button
@@ -233,79 +233,6 @@ function UsersManagement() {
       })}
 
       <UserDialog open={dlg.open} onClose={() => setDlg({ open: false })} editUser={dlg.edit} />
-    </div>
-  );
-}
-
-// ─── Suppliers Section ─────────────────────────────────────────────────────────
-function SuppliersSection() {
-  const { suppliers, addSupplier, updateSupplier, deleteSupplier } = useStore();
-  const [dlg, setDlg] = useState<{ open: boolean; edit?: Supplier }>({ open: false });
-  const [form, setForm] = useState({ name: '', type: 'purchase' as 'purchase' | 'commission', phone: '', contactInfo: '' });
-
-  const openAdd  = () => { setForm({ name: '', type: 'purchase', phone: '', contactInfo: '' }); setDlg({ open: true }); };
-  const openEdit = (s: Supplier) => { setForm({ name: s.name, type: s.type as 'purchase' | 'commission', phone: s.phone ?? '', contactInfo: s.contactInfo ?? '' }); setDlg({ open: true, edit: s }); };
-  const handleSave = () => {
-    if (!form.name.trim()) return;
-    if (dlg.edit) updateSupplier(dlg.edit.id, form);
-    else addSupplier(form);
-    setDlg({ open: false });
-  };
-
-  const colGrid = '1fr 1fr 120px 100px';
-
-  return (
-    <div style={sCard}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <div style={sTitle}><Building2 className="w-5 h-5" style={{ color: NAVY }} /> ניהול ספקים וסוכנים</div>
-        <button onClick={openAdd} style={btnNavy}>+ הוסף ספק</button>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: colGrid, gap: 0, background: '#f8f9fd', borderRadius: 10, padding: '8px 12px', marginBottom: 4 }}>
-        {['שם', 'טלפון', 'סוג', 'פעולות'].map(h => (
-          <div key={h} style={thStyle}>{h}</div>
-        ))}
-      </div>
-
-      {suppliers.map(s => (
-        <div key={s.id} style={{ display: 'grid', gridTemplateColumns: colGrid, gap: 0, alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid #f4f6fb' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, fontFamily: F }}>{s.name}</div>
-          <div style={{ fontSize: 12, color: TH_COLOR, fontFamily: F, direction: 'ltr', textAlign: 'right' }}>{s.phone}</div>
-          <div>
-            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, ...(s.type === 'commission' ? { background: '#f3e5f5', color: '#6a1b9a' } : { background: '#fff3e0', color: '#e65100' }) }}>
-              {s.type === 'commission' ? 'קומיסיון' : 'קניה'}
-            </span>
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={() => openEdit(s)} style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef0fb', color: '#5c6bc0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>✏️</button>
-            <button onClick={() => { if (window.confirm(`למחוק את ${s.name}?`)) deleteSupplier(s.id); }} style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#ffebee', color: '#e57373', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>🗑</button>
-          </div>
-        </div>
-      ))}
-
-      {suppliers.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '20px 0', color: TH_COLOR, fontSize: 13, fontFamily: F }}>אין ספקים</div>
-      )}
-
-      <Dialog open={dlg.open} onOpenChange={o => !o && setDlg({ open: false })}>
-        <DialogContent dir="rtl">
-          <DialogHeader><DialogTitle>🏭 {dlg.edit ? 'עריכת ספק' : 'הוספת ספק'}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-1 gap-3">
-            <div className="space-y-1.5"><Label>שם ספק</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="שם..." /></div>
-            <div className="space-y-1.5"><Label>סוג</Label>
-              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as 'purchase' | 'commission' }))}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="purchase">קניה</option>
-                <option value="commission">קומיסיון</option>
-              </select></div>
-            <div className="space-y-1.5"><Label>טלפון</Label><Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} dir="ltr" placeholder="050-..." /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDlg({ open: false })}>ביטול</Button>
-            <Button onClick={handleSave}>💾 {dlg.edit ? 'שמור' : 'הוסף ספק'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -432,7 +359,6 @@ export default function HagdarotPage() {
     <div dir="rtl" style={{ maxWidth: 860, margin: '0 auto' }}>
       <NedarimSettings />
       <UsersManagement />
-      <SuppliersSection />
       <ResetSystem />
     </div>
   );
