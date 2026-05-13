@@ -1,69 +1,73 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../../../store/useStore';
-import { RotateCcw, AlertTriangle, ShieldAlert, Landmark, Users, Building2 } from 'lucide-react';
+import { RotateCcw, AlertTriangle, ShieldAlert } from 'lucide-react';
 import type { User, UserRole, Supplier } from '../../../types';
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
-import { Badge } from '../../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import { Label } from '../../ui/label';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const NAVY = '#1e3166';
 const TH_COLOR = '#9fa8da';
+const F = "'Heebo', sans-serif";
 
 const sCard: React.CSSProperties = {
   background: '#fff', borderRadius: 18, padding: 20, marginBottom: 16,
   border: '1px solid #eaecf5', boxShadow: '0 2px 12px rgba(26,35,126,0.06)',
 };
 const sTitle: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 8,
-  fontSize: 15, fontWeight: 900, color: NAVY, marginBottom: 16,
-  paddingBottom: 12, borderBottom: '1px solid #eaecf5',
-  fontFamily: "'Heebo', sans-serif",
+  fontSize: 14, fontWeight: 900, color: NAVY, marginBottom: 16, fontFamily: F,
 };
 const sRow: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
   padding: '11px 0', borderBottom: '1px solid #f4f6fb',
 };
 const sLabel: React.CSSProperties = {
-  fontSize: 13, fontWeight: 700, color: '#333', fontFamily: "'Heebo', sans-serif",
+  fontSize: 13, fontWeight: 700, color: '#333', fontFamily: F,
 };
 const sSub: React.CSSProperties = {
-  fontSize: 11, color: '#bbb', marginTop: 2, fontFamily: "'Heebo', sans-serif",
+  fontSize: 11, color: '#bbb', marginTop: 2, fontFamily: F,
 };
 const sInput: React.CSSProperties = {
   border: '1.5px solid #e0e4f0', borderRadius: 11, padding: '8px 13px',
-  fontSize: 13, fontFamily: "'Heebo', sans-serif", color: '#333', outline: 'none',
-  flex: 1, maxWidth: 380, textAlign: 'right',
+  fontSize: 13, fontFamily: F, color: '#333', outline: 'none',
+  width: 200, textAlign: 'right',
 };
 const btnNavy: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 7,
-  padding: '10px 20px', borderRadius: 12, border: 'none',
+  padding: '10px 18px', borderRadius: 12, border: 'none',
   fontSize: 13, fontWeight: 700, cursor: 'pointer',
   background: NAVY, color: '#fff',
   boxShadow: '0 4px 12px rgba(30,49,102,0.25)',
-  fontFamily: "'Heebo', sans-serif",
+  fontFamily: F,
 };
-const userRow: React.CSSProperties = {
+
+// user-row style — card style (like original)
+const userRowStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  padding: '10px 0', borderBottom: '1px solid #f4f6fb',
+  background: '#f8f9fd', borderRadius: 14, padding: '12px 16px', marginBottom: 8,
 };
-const iconBtnStyle = (bg: string, color: string): React.CSSProperties => ({
-  display: 'inline-flex', alignItems: 'center', gap: 5,
-  padding: '5px 12px', borderRadius: 9, border: 'none', cursor: 'pointer',
-  background: bg, color, fontSize: 12, fontWeight: 700,
-  fontFamily: "'Heebo', sans-serif", transition: 'all .2s',
+
+// small icon button
+const iconBtn = (bg: string, color: string): React.CSSProperties => ({
+  width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer',
+  background: bg, color, display: 'flex', alignItems: 'center',
+  justifyContent: 'center', fontSize: 13,
 });
 
 const roleLabels: Record<UserRole, string> = {
   kupa: 'קופה', manager: 'מנהל', admin: 'מנהל ראשי',
 };
-const roleBadgeStyle = (role: UserRole): React.CSSProperties => {
-  if (role === 'admin')   return { background: '#f3e5f5', color: '#6a1b9a' };
-  if (role === 'manager') return { background: '#eef0fb', color: NAVY };
-  return { background: '#e8f5e9', color: '#2e7d32' };
+const badgeBase: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center',
+  padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+};
+const roleBadge = (role: UserRole): React.CSSProperties => {
+  if (role === 'admin')   return { ...badgeBase, background: '#f3e5f5', color: '#6a1b9a' };
+  if (role === 'manager') return { ...badgeBase, background: '#eef0fb', color: NAVY };
+  return { ...badgeBase, background: '#e8f5e9', color: '#2e7d32' };
 };
 
 // ─── Nedarim Settings ──────────────────────────────────────────────────────────
@@ -84,21 +88,24 @@ function NedarimSettings() {
 
   return (
     <div style={sCard}>
-      <div style={sTitle}><Landmark className="w-5 h-5" style={{ color: '#c8890a' }} /> חיבור לנדרים פלוס</div>
-      <div style={{ ...sRow, borderBottom: '1px solid #f4f6fb' }}>
+      <div style={sTitle}>🔗 חיבור נדרים פלוס</div>
+      <div style={{ ...sRow }}>
         <div><div style={sLabel}>שם החנות</div></div>
         <input style={sInput} value={settings.storeName} onChange={e => updateSettings({ storeName: e.target.value })} />
       </div>
-      <div style={{ ...sRow, borderBottom: '1px solid #f4f6fb' }}>
+      <div style={{ ...sRow }}>
         <div><div style={sLabel}>כתובת API של נדרים פלוס</div></div>
         <input style={{ ...sInput, direction: 'ltr', textAlign: 'left' }} value={apiUrl} onChange={e => setApiUrl(e.target.value)} placeholder="https://matara.pro/nedarimplus/..." />
       </div>
-      <div style={{ ...sRow, borderBottom: '1px solid #f4f6fb' }}>
+      <div style={{ ...sRow }}>
         <div><div style={sLabel}>קוד מוסד (MosadId)</div></div>
         <input style={{ ...sInput, direction: 'ltr', textAlign: 'left' }} value={mosadId} onChange={e => setMosadId(e.target.value)} placeholder="7011179" />
       </div>
       <div style={{ ...sRow, borderBottom: 'none' }}>
-        <div><div style={sLabel}>קוד מאצ'ינג (MatchId)</div><div style={sSub}>נדרש רק לשליפת מגייסים ויעדים. אם אין לך, השאר ריק.</div></div>
+        <div>
+          <div style={sLabel}>קוד מאצ'ינג (MatchId)</div>
+          <div style={sSub}>נדרש רק לשליפת מגייסים ויעדים. אם אין לך, השאר ריק.</div>
+        </div>
         <input style={{ ...sInput, direction: 'ltr', textAlign: 'left' }} value={matchId} onChange={e => setMatchId(e.target.value)} placeholder="מזהה התאמה (אופציונלי)" />
       </div>
       <div style={{ marginTop: 16 }}>
@@ -119,6 +126,15 @@ function UserDialog({ open, onClose, editUser }: { open: boolean; onClose: () =>
     password: editUser?.password ?? '',
     role:    (editUser?.role     ?? 'kupa') as UserRole,
   });
+
+  useEffect(() => {
+    if (open) setForm({
+      name:     editUser?.name     ?? '',
+      username: editUser?.username ?? '',
+      password: editUser?.password ?? '',
+      role:    (editUser?.role     ?? 'kupa') as UserRole,
+    });
+  }, [open, editUser]);
 
   const handleSave = () => {
     if (!form.name.trim() || !form.username.trim()) return;
@@ -159,48 +175,44 @@ function UserDialog({ open, onClose, editUser }: { open: boolean; onClose: () =>
 
 // ─── Users Management ──────────────────────────────────────────────────────────
 function UsersManagement() {
-  const { users, updateUser, deleteUser, currentUser } = useStore();
+  const { users, deleteUser, currentUser } = useStore();
   const [dlg, setDlg] = useState<{ open: boolean; edit?: User }>({ open: false });
 
   return (
     <div style={sCard}>
-      <div style={sTitle}><Users className="w-5 h-5" style={{ color: NAVY }} /> ניהול משתמשים</div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-        <button onClick={() => setDlg({ open: true })} style={btnNavy}>👤+ הוספת משתמש חדש</button>
-      </div>
-
-      {/* Table header */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 160px', gap: 0, background: '#f8f9fd', borderRadius: 10, padding: '8px 12px', marginBottom: 4 }}>
-        {['שם', 'שם משתמש', 'תפקיד', 'פעולות'].map(h => (
-          <div key={h} style={{ fontSize: 11, fontWeight: 800, color: TH_COLOR, textAlign: 'right', fontFamily: "'Heebo', sans-serif" }}>{h}</div>
-        ))}
+      <div style={sTitle}>👥 ניהול משתמשים</div>
+      <div style={{ marginBottom: 14 }}>
+        <button onClick={() => setDlg({ open: true })} style={btnNavy}>+ הוסף משתמש</button>
       </div>
 
       {users.map(u => {
         const isMe = u.id === currentUser?.id;
         return (
-          <div key={u.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 160px', gap: 0, alignItems: 'center', ...userRow }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, fontFamily: "'Heebo', sans-serif" }}>
-              {u.name}{isMe && <span style={{ fontSize: 10, color: TH_COLOR, marginRight: 5 }}>אני</span>}
-            </div>
-            <div style={{ fontSize: 12, color: TH_COLOR, fontFamily: "'Heebo', sans-serif", direction: 'ltr', textAlign: 'right' }}>{u.username}</div>
-            <div>
-              <select
-                value={u.role}
-                onChange={e => updateUser(u.id, { role: e.target.value as UserRole })}
-                style={{ border: '1.5px solid #e0e4f0', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontFamily: "'Heebo', sans-serif", color: NAVY, background: '#f8f9fd', cursor: 'pointer' }}
-              >
-                <option value="admin">מנהל ראשי</option>
-                <option value="manager">מנהל</option>
-                <option value="kupa">קופה</option>
-              </select>
-            </div>
+          <div key={u.id} style={userRowStyle}>
+            {/* Action buttons — appear on RIGHT in RTL (first in DOM) */}
             <div style={{ display: 'flex', gap: 6 }}>
-              <button onClick={() => setDlg({ open: true, edit: u })} style={iconBtnStyle('#eef0fb', NAVY)}>עריכה / איפוס סיסמה ✏️</button>
               {!isMe && (
-                <button onClick={() => { if (window.confirm(`למחוק את ${u.name}?`)) deleteUser(u.id); }} style={iconBtnStyle('#ffebee', '#e53935')}>🗑</button>
+                <button
+                  onClick={() => { if (window.confirm(`למחוק את ${u.name}?`)) deleteUser(u.id); }}
+                  style={iconBtn('#ffebee', '#e57373')}
+                  title="מחק"
+                >🗑</button>
               )}
+              <button
+                onClick={() => setDlg({ open: true, edit: u })}
+                style={iconBtn('#eef0fb', '#5c6bc0')}
+                title="ערוך"
+              >✏️</button>
             </div>
+            {/* Name + role — center */}
+            <div style={{ textAlign: 'right', flex: 1, margin: '0 12px' }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: NAVY, fontFamily: F }}>
+                {u.name}{isMe && <span style={{ fontSize: 10, color: TH_COLOR, marginRight: 5 }}>אני</span>}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: TH_COLOR, fontFamily: F }}>{u.role}</div>
+            </div>
+            {/* Badge — appear on LEFT in RTL (last in DOM) */}
+            <span style={roleBadge(u.role)}>{roleLabels[u.role]}</span>
           </div>
         );
       })}
@@ -225,37 +237,36 @@ function SuppliersSection() {
     setDlg({ open: false });
   };
 
+  const supBadge = (type: string): React.CSSProperties => type === 'commission'
+    ? { ...badgeBase, background: '#f3e5f5', color: '#6a1b9a' }
+    : { ...badgeBase, background: '#fff3e0', color: '#e65100' };
+
   return (
     <div style={sCard}>
-      <div style={sTitle}><Building2 className="w-5 h-5" style={{ color: NAVY }} /> ניהול ספקים וסוכנים</div>
+      <div style={sTitle}>🏭 ניהול ספקים וסוכנים</div>
       <div style={{ marginBottom: 14 }}>
         <button onClick={openAdd} style={btnNavy}>+ הוסף ספק</button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px', gap: 0, background: '#f8f9fd', borderRadius: 10, padding: '8px 12px', marginBottom: 4 }}>
-        {['שם', 'טלפון', 'סוג', 'פעולות'].map(h => (
-          <div key={h} style={{ fontSize: 11, fontWeight: 800, color: TH_COLOR, textAlign: 'right', fontFamily: "'Heebo', sans-serif" }}>{h}</div>
-        ))}
-      </div>
-
       {suppliers.map(s => (
-        <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px', gap: 0, alignItems: 'center', ...userRow }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, fontFamily: "'Heebo', sans-serif" }}>{s.name}</div>
-          <div style={{ fontSize: 12, color: TH_COLOR, fontFamily: "'Heebo', sans-serif", direction: 'ltr', textAlign: 'right' }}>{s.phone}</div>
-          <div>
-            <Badge variant={s.type === 'commission' ? 'secondary' : 'outline'}>
-              {s.type === 'commission' ? 'קומיסיון' : 'קניה'}
-            </Badge>
-          </div>
+        <div key={s.id} style={userRowStyle}>
+          {/* Action buttons */}
           <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={() => openEdit(s)} style={iconBtnStyle('#eef0fb', NAVY)}>✏️</button>
-            <button onClick={() => { if (window.confirm(`למחוק את ${s.name}?`)) deleteSupplier(s.id); }} style={iconBtnStyle('#ffebee', '#e53935')}>🗑</button>
+            <button onClick={() => { if (window.confirm(`למחוק את ${s.name}?`)) deleteSupplier(s.id); }} style={iconBtn('#ffebee', '#e57373')} title="מחק">🗑</button>
+            <button onClick={() => openEdit(s)} style={iconBtn('#eef0fb', '#5c6bc0')} title="ערוך">✏️</button>
           </div>
+          {/* Name + phone */}
+          <div style={{ textAlign: 'right', flex: 1, margin: '0 12px' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: NAVY, fontFamily: F }}>{s.name}</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: TH_COLOR, fontFamily: F, direction: 'ltr', textAlign: 'right' }}>{s.phone}</div>
+          </div>
+          {/* Badge */}
+          <span style={supBadge(s.type)}>{s.type === 'commission' ? 'קומיסיון' : 'קניה'}</span>
         </div>
       ))}
 
       {suppliers.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '20px 0', color: TH_COLOR, fontSize: 13, fontFamily: "'Heebo', sans-serif" }}>אין ספקים</div>
+        <div style={{ textAlign: 'center', padding: '20px 0', color: TH_COLOR, fontSize: 13, fontFamily: F }}>אין ספקים</div>
       )}
 
       <Dialog open={dlg.open} onOpenChange={o => !o && setDlg({ open: false })}>
@@ -398,12 +409,36 @@ function ResetSystem() {
 }
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
+type HagSection = 'nedarim' | 'users' | 'suppliers';
+
+const hagSections: { id: HagSection; label: string }[] = [
+  { id: 'nedarim',   label: '🔗 נדרים פלוס' },
+  { id: 'users',     label: '👥 משתמשים' },
+  { id: 'suppliers', label: '🏭 ספקים' },
+];
+
+const hagBtnStyle = (active: boolean): React.CSSProperties => active
+  ? { background: '#fff', color: '#1a1a2e', boxShadow: '0 2px 8px rgba(30,49,102,0.12)', border: 'none', padding: '8px 20px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: F }
+  : { background: 'transparent', color: '#9fa8da', border: 'none', padding: '8px 20px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: F };
+
 export default function HagdarotPage() {
+  const [section, setSection] = useState<HagSection>('nedarim');
+
   return (
-    <div dir="rtl" style={{ maxWidth: 860, margin: '0 auto' }}>
-      <NedarimSettings />
-      <UsersManagement />
-      <SuppliersSection />
+    <div dir="rtl">
+      {/* Section selector pill */}
+      <div style={{ display: 'flex', gap: 6, background: '#eef0f8', borderRadius: 16, padding: 5, width: 'fit-content', marginBottom: 16 }}>
+        {hagSections.map(s => (
+          <button key={s.id} onClick={() => setSection(s.id)} style={hagBtnStyle(section === s.id)}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {section === 'nedarim'   && <NedarimSettings />}
+      {section === 'users'     && <UsersManagement />}
+      {section === 'suppliers' && <SuppliersSection />}
+
       <ResetSystem />
     </div>
   );
