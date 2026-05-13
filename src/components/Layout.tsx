@@ -8,6 +8,7 @@ import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { LogOut } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 // ── Hebrew clock ──
 function HeaderClock() {
@@ -33,7 +34,7 @@ function HeaderClock() {
         <span className="text-xs text-accent font-semibold whitespace-nowrap">{formatParasha(now)}</span>
       </div>
       {/* שעון גדול */}
-      <span className="font-mono font-bold tabular-nums text-3xl tracking-tight bg-gradient-to-b from-primary to-accent bg-clip-text text-transparent px-2">
+      <span className="font-mono font-bold tabular-nums text-3xl md:text-4xl tracking-tight bg-gradient-to-b from-primary to-accent bg-clip-text text-transparent px-2">
         {formatTime(now)}
       </span>
       {/* שמאל: תאריך עברי + לועזי */}
@@ -77,83 +78,67 @@ export default function Layout() {
   };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', direction: 'rtl' }}>
+    <div className="h-screen flex flex-col overflow-hidden" dir="rtl">
 
       {/* ── Header ── */}
-      <header style={{
-        background: '#fff', borderBottom: '1px solid #e4e8f0',
-        padding: '0 24px', height: 70,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        boxShadow: '0 2px 12px rgba(26,35,126,0.07)', flexShrink: 0,
-      }}>
-        {/* Right: logo + store name */}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <img src="/icon.png" alt="לוגו" style={{ height: 46, width: 'auto' }} />
-          <div style={{ marginRight: 12 }}>
-            <div style={{ fontSize: 18, fontWeight: 900, color: '#1e3166', letterSpacing: '0.3px', fontFamily: "'Heebo', sans-serif" }}>
-              {storeName}
-            </div>
-            <div style={{ fontSize: 11, color: '#aaa', fontWeight: 500, marginTop: 2, fontFamily: "'Heebo', sans-serif" }}>
-              {roleLabel} · {currentUser?.name}
+      <header className="border-b bg-card/80 backdrop-blur-sm shadow-soft shrink-0 z-40">
+        <div className="container py-3 flex items-center gap-4">
+
+          {/* Right: logo + store name */}
+          <div className="flex items-center gap-3 shrink-0">
+            <img src="/icon.png" alt="לוגו" className="h-11 w-auto rounded-xl" />
+            <div>
+              <h1 className="text-xl font-bold leading-tight">{storeName}</h1>
+              <p className="text-xs text-muted-foreground">{roleLabel} · {currentUser?.name}</p>
             </div>
           </div>
+
+          {/* Center: clock */}
+          <div className="flex-1 min-w-0">
+            <HeaderClock />
+          </div>
+
+          {/* Left: logout */}
+          <Button
+            variant="ghost" size="sm" className="gap-2 shrink-0"
+            onClick={() => { setLogoutPwd(''); setLogoutError(''); setLogoutOpen(true); }}
+          >
+            <LogOut className="w-4 h-4" /> התנתק
+          </Button>
         </div>
-
-        {/* Center: clock */}
-        <HeaderClock />
-
-        {/* Left: logout button */}
-        <button
-          onClick={() => { setLogoutPwd(''); setLogoutError(''); setLogoutOpen(true); }}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            fontSize: 13, fontWeight: 700, color: '#666',
-            border: '1.5px solid #e0e4f0', borderRadius: 12,
-            padding: '8px 16px', background: '#fff', cursor: 'pointer',
-            transition: 'all .2s', fontFamily: "'Heebo', sans-serif",
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9fa8da'; (e.currentTarget as HTMLButtonElement).style.color = '#1e3166'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e0e4f0'; (e.currentTarget as HTMLButtonElement).style.color = '#666'; }}
-        >
-          → התנתק
-        </button>
       </header>
 
       {/* ── Tabs bar (managers/admins only) ── */}
       {canManage && (
-        <div style={{
-          background: '#fff', borderBottom: '1px solid #eaecf5',
-          display: 'flex', justifyContent: 'center', padding: 10, flexShrink: 0,
-        }}>
-          <div style={{ display: 'flex', gap: 4, background: '#eef0f8', borderRadius: 16, padding: 5 }}>
-            {TABS.map(tab => (
-              <button
-                key={tab.value}
-                onClick={() => setActiveTab(tab.value)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 7,
-                  padding: '9px 44px', borderRadius: 12, border: 'none',
-                  fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                  transition: 'all .2s', fontFamily: "'Heebo', sans-serif",
-                  background: activeTab === tab.value ? '#1e3166' : 'transparent',
-                  color:      activeTab === tab.value ? '#fff'    : '#9fa8da',
-                  boxShadow:  activeTab === tab.value ? '0 4px 14px rgba(30,49,102,0.3)' : 'none',
-                }}
-              >
-                {tab.emoji} {tab.label}
-              </button>
-            ))}
+        <div className="border-b bg-card/60 shrink-0">
+          <div className="container py-2">
+            <div className="grid bg-muted p-1 rounded-lg grid-cols-2 max-w-xs h-10 mx-auto">
+              {TABS.map(tab => (
+                <button
+                  key={tab.value}
+                  onClick={() => setActiveTab(tab.value)}
+                  className={cn(
+                    "rounded-md text-sm font-medium transition-smooth flex items-center justify-center gap-2",
+                    activeTab === tab.value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {tab.emoji} {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
       {/* ── Main content ── */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' }}>
-        <div style={{ display: activeTab === 'kupa'  ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}>
+      <div className="flex-1 min-h-0 overflow-hidden flex">
+        <div style={{ display: activeTab === 'kupa' ? 'flex' : 'none' }} className="flex-1 min-h-0 flex-col">
           <KupaPage />
         </div>
         {canManage && (
-          <div style={{ display: activeTab === 'nihul' ? 'flex' : 'none', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <div style={{ display: activeTab === 'nihul' ? 'flex' : 'none' }} className="flex-1 min-h-0 overflow-hidden">
             <NihulPage />
           </div>
         )}
