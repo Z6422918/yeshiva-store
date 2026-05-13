@@ -36,7 +36,7 @@ const sSub: React.CSSProperties = {
 const sInput: React.CSSProperties = {
   border: '1.5px solid #e0e4f0', borderRadius: 11, padding: '8px 13px',
   fontSize: 13, fontFamily: "'Heebo', sans-serif", color: '#333', outline: 'none',
-  width: 260, textAlign: 'right',
+  flex: 1, maxWidth: 380, textAlign: 'right',
 };
 const btnNavy: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 7,
@@ -159,7 +159,7 @@ function UserDialog({ open, onClose, editUser }: { open: boolean; onClose: () =>
 
 // ─── Users Management ──────────────────────────────────────────────────────────
 function UsersManagement() {
-  const { users, deleteUser, currentUser } = useStore();
+  const { users, updateUser, deleteUser, currentUser } = useStore();
   const [dlg, setDlg] = useState<{ open: boolean; edit?: User }>({ open: false });
 
   return (
@@ -185,12 +185,18 @@ function UsersManagement() {
             </div>
             <div style={{ fontSize: 12, color: TH_COLOR, fontFamily: "'Heebo', sans-serif", direction: 'ltr', textAlign: 'right' }}>{u.username}</div>
             <div>
-              <Badge variant={u.role === 'admin' ? 'default' : u.role === 'manager' ? 'secondary' : 'outline'}>
-                {roleLabels[u.role]}
-              </Badge>
+              <select
+                value={u.role}
+                onChange={e => updateUser(u.id, { role: e.target.value as UserRole })}
+                style={{ border: '1.5px solid #e0e4f0', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontFamily: "'Heebo', sans-serif", color: NAVY, background: '#f8f9fd', cursor: 'pointer' }}
+              >
+                <option value="admin">מנהל ראשי</option>
+                <option value="manager">מנהל</option>
+                <option value="kupa">קופה</option>
+              </select>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
-              <button onClick={() => setDlg({ open: true, edit: u })} style={iconBtnStyle('#eef0fb', NAVY)}>✏️ עריכה</button>
+              <button onClick={() => setDlg({ open: true, edit: u })} style={iconBtnStyle('#eef0fb', NAVY)}>עריכה / איפוס סיסמה ✏️</button>
               {!isMe && (
                 <button onClick={() => { if (window.confirm(`למחוק את ${u.name}?`)) deleteUser(u.id); }} style={iconBtnStyle('#ffebee', '#e53935')}>🗑</button>
               )}
@@ -394,7 +400,7 @@ function ResetSystem() {
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function HagdarotPage() {
   return (
-    <div dir="rtl">
+    <div dir="rtl" style={{ maxWidth: 860, margin: '0 auto' }}>
       <NedarimSettings />
       <UsersManagement />
       <SuppliersSection />
