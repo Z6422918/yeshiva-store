@@ -78,7 +78,7 @@ export default function Layout() {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" dir="rtl">
+    <div className="flex-1 flex flex-col overflow-hidden w-full" dir="rtl">
 
       {/* ── Header ── */}
       <header className="border-b bg-card/80 backdrop-blur-sm shadow-soft shrink-0 z-40">
@@ -134,7 +134,7 @@ export default function Layout() {
 
       {/* ── Main content ── */}
       <div className="flex-1 min-h-0 overflow-hidden flex">
-        <div style={{ display: activeTab === 'kupa' ? 'flex' : 'none' }} className="flex-1 min-h-0 flex-col">
+        <div style={{ display: activeTab === 'kupa' ? 'flex' : 'none' }} className="flex-1 min-h-0 flex-col p-4">
           <KupaPage />
         </div>
         {canManage && (
