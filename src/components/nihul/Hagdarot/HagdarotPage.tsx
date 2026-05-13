@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../../../store/useStore';
-import { RotateCcw, AlertTriangle } from 'lucide-react';
+import { RotateCcw, AlertTriangle, ShieldAlert, Landmark, Users, Building2 } from 'lucide-react';
 import type { User, UserRole, Supplier } from '../../../types';
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
+import { Badge } from '../../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import { Label } from '../../ui/label';
 
@@ -83,7 +84,7 @@ function NedarimSettings() {
 
   return (
     <div style={sCard}>
-      <div style={sTitle}>🏛 חיבור לנדרים פלוס</div>
+      <div style={sTitle}><Landmark className="w-5 h-5" style={{ color: '#c8890a' }} /> חיבור לנדרים פלוס</div>
       <div style={{ ...sRow, borderBottom: '1px solid #f4f6fb' }}>
         <div><div style={sLabel}>שם החנות</div></div>
         <input style={sInput} value={settings.storeName} onChange={e => updateSettings({ storeName: e.target.value })} />
@@ -163,7 +164,7 @@ function UsersManagement() {
 
   return (
     <div style={sCard}>
-      <div style={sTitle}>👥 ניהול משתמשים</div>
+      <div style={sTitle}><Users className="w-5 h-5" style={{ color: NAVY }} /> ניהול משתמשים</div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
         <button onClick={() => setDlg({ open: true })} style={btnNavy}>👤+ הוספת משתמש חדש</button>
       </div>
@@ -184,9 +185,9 @@ function UsersManagement() {
             </div>
             <div style={{ fontSize: 12, color: TH_COLOR, fontFamily: "'Heebo', sans-serif", direction: 'ltr', textAlign: 'right' }}>{u.username}</div>
             <div>
-              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: "'Heebo', sans-serif", ...roleBadgeStyle(u.role) }}>
+              <Badge variant={u.role === 'admin' ? 'default' : u.role === 'manager' ? 'secondary' : 'outline'}>
                 {roleLabels[u.role]}
-              </span>
+              </Badge>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={() => setDlg({ open: true, edit: u })} style={iconBtnStyle('#eef0fb', NAVY)}>✏️ עריכה</button>
@@ -220,7 +221,7 @@ function SuppliersSection() {
 
   return (
     <div style={sCard}>
-      <div style={sTitle}>🏭 ניהול ספקים וסוכנים</div>
+      <div style={sTitle}><Building2 className="w-5 h-5" style={{ color: NAVY }} /> ניהול ספקים וסוכנים</div>
       <div style={{ marginBottom: 14 }}>
         <button onClick={openAdd} style={btnNavy}>+ הוסף ספק</button>
       </div>
@@ -236,10 +237,9 @@ function SuppliersSection() {
           <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, fontFamily: "'Heebo', sans-serif" }}>{s.name}</div>
           <div style={{ fontSize: 12, color: TH_COLOR, fontFamily: "'Heebo', sans-serif", direction: 'ltr', textAlign: 'right' }}>{s.phone}</div>
           <div>
-            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: "'Heebo', sans-serif",
-              ...(s.type === 'commission' ? { background: '#f3e5f5', color: '#6a1b9a' } : { background: '#fff3e0', color: '#e65100' }) }}>
+            <Badge variant={s.type === 'commission' ? 'secondary' : 'outline'}>
               {s.type === 'commission' ? 'קומיסיון' : 'קניה'}
-            </span>
+            </Badge>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={() => openEdit(s)} style={iconBtnStyle('#eef0fb', NAVY)}>✏️</button>
@@ -323,7 +323,7 @@ function ResetSystem() {
     <>
       <Card className="p-6 shadow-soft border-destructive/30 bg-destructive/5">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-xl">⚠️</span>
+          <ShieldAlert className="w-5 h-5 text-destructive" />
           <h3 className="text-lg font-bold text-destructive">איפוס מערכת</h3>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
@@ -348,7 +348,7 @@ function ResetSystem() {
       </Overlay>
 
       <Overlay open={step === 'code'}>
-        <div className="flex items-center gap-2 mb-2 text-destructive"><span className="text-xl">🔐</span><h2 className="text-lg font-bold">הזן קוד אישור מיוחד</h2></div>
+        <div className="flex items-center gap-2 mb-2 text-destructive"><ShieldAlert className="w-5 h-5" /><h2 className="text-lg font-bold">הזן קוד אישור מיוחד</h2></div>
         <p className="text-sm text-muted-foreground mb-4">כדי לאשר את האיפוס, הזן את הקוד: <strong className="text-foreground font-mono text-lg">{RESET_CODE}</strong></p>
         <Input dir="ltr" value={codeInput} onChange={e => setCodeInput(e.target.value.toUpperCase())} placeholder="הזן קוד אישור..." className="text-center font-mono text-lg tracking-widest mb-4" autoFocus />
         <div className="flex gap-2 justify-end">
